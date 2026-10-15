@@ -285,16 +285,6 @@ DRAWERS = {
     "chicken": chicken, "egg": egg, "bee": bee, "honey": honey, "cow": cow,
     "milk": milk, "sheep": sheep, "wool": wool, "tree": tree, "apple": apple,
 }
-# built-in vocabulary of the vector library; used as distractor pool fallback
-ART_NAMES = {
-    "chicken": ("Chicken", "Ayam"), "egg": ("Egg", "Telur"), "bee": ("Bee", "Lebah"),
-    "honey": ("Honey", "Madu"), "cow": ("Cow", "Sapi"), "milk": ("Milk", "Susu"),
-    "sheep": ("Sheep", "Domba"), "wool": ("Wool", "Wol"), "tree": ("Tree", "Pohon"),
-    "apple": ("Apple", "Apel"),
-}
-ART_PAIRS = [("chicken", "egg"), ("bee", "honey"), ("cow", "milk"), ("sheep", "wool"), ("tree", "apple")]
-
-
 def has_art(name_en: str) -> bool:
     s = slug(name_en)
     return s in DRAWERS or (ASSETS / "images" / f"{s}.png").exists()
@@ -352,3 +342,8 @@ def draw_object(c, name_en: str, cx, cy, size, mode="color"):
     else:
         generic(k, name_en)
     c.restoreState()
+
+
+# ilustrasi tambahan untuk tema Tracing Words (43 kata)
+from .art_words import WORD_DRAWERS  # noqa: E402
+DRAWERS.update(WORD_DRAWERS)

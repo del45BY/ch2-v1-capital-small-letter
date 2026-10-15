@@ -1,11 +1,15 @@
 """
 CLI:  python -m worksheet_engine.main --db data/worksheet_database.xlsx --out PRODUCTS
-      options: --templates A,B,C  --only 001,003  --force  --strict  --workers 4  --export-prompts
 
-BUNDLE MODE (every page can use a DIFFERENT animal/pair; builds only bundles, not single products):
-  --bundle NAME --ids 001,002,003,004,005        page 1 = row 001, page 2 = row 002 ... (cycles if fewer ids than pages)
-  --bundle NAME --pages A=001,B=002,C=003        exact page -> row mapping
-  --bundles-sheet [--bundle NAME]                read the 'Bundles' sheet of the Excel file (Bundle | Template | ID)
+Membuat, dari sheet "Database" (1 tema = 1 template A..J = 5 kata):
+  PRODUCTS/Tracing_Words/<NN_Tema>/                 PDF 1 halaman + Preview + Cover + Thumbnail  (satu per tema)
+  PRODUCTS/Tracing_Words/<NamaPaket>/               PDF satu halaman per tema (paket lengkap)
+  PRODUCTS/qc_report.csv, manifest.csv, (image_prompts.csv)
+
+Opsi:  --only A,C        hanya template tertentu          --no-pack     jangan buat paket lengkap
+       --pack-name X     nama paket (default Tracing_Words_Complete_Pack)   --no-themes   hanya paket
+       --force           bangun ulang meski tidak berubah   --strict       peringatan dianggap gagal
+       --workers 4       beberapa tema sekaligus            --export-prompts  tulis image_prompts.csv
 """
 import argparse
 import csv
@@ -13,137 +17,76 @@ import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from .config import STYLE_NEGATIVE, STYLE_SUFFIX
-from .database import load_bundles, load_rows
-from .qc import check_rows, row_status, write_report
-from .render import build_bundle, build_pool, build_product
-from .templates import DEFAULT_SET, TEMPLATES
+from .database import load_themes
+from .qc import check_themes, theme_status, write_report
+from .render import build_pack, build_theme
 
 
 def _job(args):
-    row, pool, out, templates, force = args
-    return build_product(row, pool, out, templates, force)
-
-
-def _bundle_specs(a, tpl_override):
-    """-> {bundle_name: [(template_key, row_id), ...]}"""
-    specs = {}
-    if a.bundles_sheet:
-        for name, lines in load_bundles(a.db).items():
-            if a.bundle and name != a.bundle:
-                continue
-            specs[name] = [(t or DEFAULT_SET[i % len(DEFAULT_SET)], rid) for i, (t, rid) in enumerate(lines)]
-        if not specs:
-            sys.exit("No bundles found (sheet 'Bundles' missing or name not matched).")
-    else:
-        if not a.bundle:
-            sys.exit("Bundle mode needs --bundle NAME")
-        if a.pages:
-            pairs = [p.split("=") for p in a.pages.split(",")]
-            if any(len(p) != 2 for p in pairs):
-                sys.exit("--pages format: A=001,B=002,C=003")
-            specs[a.bundle] = [(k.strip().upper(), rid.strip().zfill(3) if rid.strip().isdigit() else rid.strip()) for k, rid in pairs]
-        elif a.ids:
-            ids = [i.strip().zfill(3) if i.strip().isdigit() else i.strip() for i in a.ids.split(",")]
-            keys = tpl_override or DEFAULT_SET
-            specs[a.bundle] = [(k, ids[i % len(ids)]) for i, k in enumerate(keys)]
-        else:
-            sys.exit("Bundle mode needs --ids or --pages (or --bundles-sheet)")
-    return specs
-
-
-def run_bundles(a, rows, status, out):
-    by_id = {r.id: r for r in rows}
-    tpl_override = [t.strip().upper() for t in a.templates.split(",")] if a.templates else None
-    pool = build_pool(rows)
-    results = []
-    for name, spec in _bundle_specs(a, tpl_override).items():
-        problems = [f"unknown template '{k}'" for k, _ in spec if k not in TEMPLATES]
-        problems += [f"unknown ID '{rid}'" for _, rid in spec if rid not in by_id]
-        bad = [rid for _, rid in spec if rid in by_id and status[rid] == "FAIL"
-               or (a.strict and rid in by_id and status[rid] == "WARN")]
-        problems += [f"row {rid} did not pass QC" for rid in sorted(set(bad))]
-        if problems:
-            print(f"  [SKIP] bundle '{name}': " + "; ".join(problems))
-            continue
-        pages = [(k, by_id[rid]) for k, rid in spec]
-        res = build_bundle(name, pages, pool, out, a.force)
-        results.append((res, [(k, by_id[rid].obj_en + " & " + by_id[rid].rel_en) for k, rid in spec]))
-        print(f"  [{'built' if res['built'] else 'same ':5}] {name}: {res['pages']} pages -> {res['folder']}")
-        for k, label in results[-1][1]:
-            print(f"           page {k}: {label}")
-    with open(out / "manifest_bundles.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f); w.writerow(["Bundle", "Folder", "Rebuilt", "Pages", "Page_Plan"])
-        for res, plan in results:
-            w.writerow([res["bundle"], res["folder"], res["built"], res["pages"], " | ".join(f"{k}={l}" for k, l in plan)])
-    print(f"\nDone: {len(results)} bundle(s). Output: {out.resolve()}")
+    theme, out, force = args
+    return build_theme(theme, out, force)
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", required=True); ap.add_argument("--out", default="PRODUCTS")
-    ap.add_argument("--templates", help="override, e.g. A,B,C,D,E,F")
-    ap.add_argument("--only", help="comma list of IDs")
-    ap.add_argument("--force", action="store_true", help="rebuild even if unchanged")
-    ap.add_argument("--strict", action="store_true", help="treat QC warnings as failures")
+    ap.add_argument("--only", help="kode template, mis. A,C")
+    ap.add_argument("--no-pack", action="store_true"); ap.add_argument("--no-themes", action="store_true")
+    ap.add_argument("--pack-name", default="Tracing_Words_Complete_Pack")
+    ap.add_argument("--force", action="store_true"); ap.add_argument("--strict", action="store_true")
     ap.add_argument("--workers", type=int, default=1)
-    ap.add_argument("--export-prompts", action="store_true", help="write image_prompts.csv for AI artwork")
-    ap.add_argument("--bundle", help="bundle name (folder PRODUCTS/Bundles/<name>); with --bundles-sheet = only this bundle")
-    ap.add_argument("--ids", help="bundle: row IDs in page order, e.g. 001,002,003")
-    ap.add_argument("--pages", help="bundle: exact mapping, e.g. A=001,B=002,C=003")
-    ap.add_argument("--bundles-sheet", action="store_true", help="bundle: read sheet 'Bundles' from the Excel file")
+    ap.add_argument("--export-prompts", action="store_true")
     a = ap.parse_args(argv)
 
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
-    rows = load_rows(a.db)
-    print(f"Loaded {len(rows)} rows from {a.db}")
+    themes = load_themes(a.db)
+    print(f"Dibaca {len(themes)} tema ({sum(len(t.words) for t in themes)} kata) dari {a.db}")
 
     # 1. QC
-    issues = check_rows(rows)
-    status = row_status(rows, issues)
+    issues = check_themes(themes)
+    status = theme_status(themes, issues)
     write_report(issues, out / "qc_report.csv")
-    for r in rows:
-        print(f"  [{status[r.id]:4}] {r.id} {r.obj_en} / {r.rel_en}")
+    for t in themes:
+        print(f"  [{status[t.key]:4}] {t.key}  {t.num} {t.en} / {t.idn}: " + ", ".join(w.en for w in t.words))
     for i in issues:
-        print(f"         {i.level} {i.row_id} ({i.check}): {i.message}")
+        print(f"         {i.level} {i.theme}/{i.ref} ({i.check}): {i.message}")
 
     if a.export_prompts:
         with open(out / "image_prompts.csv", "w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f); w.writerow(["ID", "Item", "Prompt", "Negative", "Filename"])
-            for r in rows:
-                for item, fn in ((r.obj_en, r.obj_en), (r.rel_en, r.rel_en)):
-                    w.writerow([r.id, item, f"{r.prompt}, {STYLE_SUFFIX}" if item == r.obj_en else
-                                f"cute {item.lower()}, {STYLE_SUFFIX}", STYLE_NEGATIVE, f"{fn.lower()}.png"])
+            w = csv.writer(f); w.writerow(["Template", "ID", "Word", "Prompt", "Negative", "Filename"])
+            for t in themes:
+                for wd in t.words:
+                    w.writerow([t.key, wd.wid, wd.en, f"{wd.prompt}, {STYLE_SUFFIX}", STYLE_NEGATIVE, f"{wd.en.lower()}.png"])
 
-    # 2a. Bundle mode: each page may use a different row
-    if a.bundle or a.ids or a.pages or a.bundles_sheet:
-        return run_bundles(a, rows, status, out)
-
-    # 2b. Build single products
+    # 2. Pilih tema yang dibangun
     ok = {"PASS"} if a.strict else {"PASS", "WARN"}
-    only = set(a.only.split(",")) if a.only else None
-    templates = [t.strip().upper() for t in a.templates.split(",")] if a.templates else None
-    if templates and any(t not in TEMPLATES for t in templates):
-        sys.exit(f"Unknown template in {templates}")
-    pool = build_pool(rows)
-    jobs = [(r, pool, out, templates, a.force) for r in rows
-            if status[r.id] in ok and (not only or r.id in only)]
-    results = []
-    if a.workers > 1:
-        with ProcessPoolExecutor(a.workers) as ex:
-            for f in as_completed([ex.submit(_job, j) for j in jobs]):
-                results.append(f.result())
-    else:
-        results = [_job(j) for j in jobs]
+    only = {x.strip().upper() for x in a.only.split(",")} if a.only else None
+    if only and (only - {t.key for t in themes}):
+        sys.exit(f"Template tidak ada di database: {sorted(only - {t.key for t in themes})}")
+    chosen = [t for t in themes if status[t.key] in ok and (not only or t.key in only)]
+    skipped = [t.key for t in themes if t not in chosen and (not only or t.key in only)]
 
-    # 3. Manifest (feed to your shop/upload scripts)
-    results.sort(key=lambda r: r["id"])
+    # 3. Bangun
+    results = []
+    if not a.no_themes:
+        jobs = [(t, out, a.force) for t in chosen]
+        if a.workers > 1:
+            with ProcessPoolExecutor(a.workers) as ex:
+                results = [f.result() for f in as_completed([ex.submit(_job, j) for j in jobs])]
+        else:
+            results = [_job(j) for j in jobs]
+        results.sort(key=lambda r: r["key"])
+    if not a.no_pack and chosen:
+        results.append(build_pack(chosen, a.pack_name, out, a.force))
+
     with open(out / "manifest.csv", "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f); w.writerow(["ID", "Folder", "Rebuilt", "Pages", "QC"])
+        w = csv.writer(f); w.writerow(["Template", "Name", "Folder", "Rebuilt", "Pages", "QC"])
         for r in results:
-            w.writerow([r["id"], r["folder"], r["built"], r["pages"], status[r["id"]]])
+            w.writerow([r["key"], r["name"], r["folder"], r["built"], r["pages"],
+                        status.get(r["key"], "PACK")])
     built = sum(r["built"] for r in results)
-    print(f"\nDone: {built} built, {len(results) - built} unchanged, "
-          f"{len(rows) - len(jobs)} skipped (QC fail / filtered).  Output: {out.resolve()}")
+    print(f"\nSelesai: {built} dibangun, {len(results) - built} tidak berubah, "
+          f"{len(skipped)} dilewati ({', '.join(skipped) or '-'}).  Hasil: {out.resolve()}")
 
 
 if __name__ == "__main__":

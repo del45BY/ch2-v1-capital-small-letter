@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
 DATA = ROOT / "data"
 
-TEMPLATE_VERSION = "2.0"          # bump to force rebuild of every product
+TEMPLATE_VERSION = "3.0"          # bump to force rebuild of every product
 
 # ---------------------------------------------------------------- brand
 BRAND = {
@@ -65,12 +65,6 @@ for b, r in _CANDIDATES:
         break
 
 # ---------------------------------------------------------------- language helpers
-# English nouns that take no "a/an" ("This is honey", not "This is a honey")
-UNCOUNTABLE_EN = {
-    "honey", "milk", "wool", "water", "bread", "butter", "cheese", "silk",
-    "juice", "sugar", "salt", "rice", "flour", "cotton", "oil", "grass",
-}
-
 # ---------------------------------------------------------------- QC rules
 QC = {
     "max_word_len": 12,
@@ -79,7 +73,7 @@ QC = {
         "realistic", "photo", "photograph", "scary", "angry", "blood",
         "gore", "weapon", "creepy", "horror", "3d render", "hyperreal",
     ],
-    "min_vocab_font_pt": 30,
+    "min_vocab_font_pt": 30,          # huruf tracing Inggris; Indonesia = ini - 8
 }
 
 # ---------------------------------------------------------------- AI-image prompt "style lock"

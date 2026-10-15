@@ -1,199 +1,100 @@
-# Bilingual Preschool Worksheet Engine (EN / ID, ages 3-5)
+# Mesin Lembar Kerja "Tracing Words" Dwibahasa (Inggris-Indonesia), usia 3-5 tahun
 
-One Excel row in -> a complete product folder out (PDF + preview + cover + thumbnail).
-Same visual identity for every worksheet; only the learning content changes.
+Isi tabel Excel -> skrip membuat lembar kerja siap cetak (PDF), pratinjau, sampul, dan thumbnail.
+Satu tampilan merek yang sama, isi berbeda. Cara kerja anak: **menebalkan kata, lalu menarik garis ke gambar yang cocok.**
 
 ```
 pip install -r requirements.txt
-python create_sample_database.py                       # makes data/worksheet_database.xlsx (5 rows)
+python create_sample_database.py          # sekali saja: membuat data/worksheet_database.xlsx (10 tema, 50 kata)
 python -m worksheet_engine.main --db data/worksheet_database.xlsx --out PRODUCTS
 ```
+Panduan lengkap beserta Do & Don't: **PANDUAN.md**
 
----------------------------------------------------------------------
-## 1. Worksheet template design
+## Konsep: 1 tema = 1 template = 5 kata
 
-### Page grid (A4 portrait, 595 x 842 pt)
-```
-+--------------------------------------------------+  <- 12pt brand colour stripe
-| [AGES 3-5 / USIA 3-5]          Name / Nama: ____ |
-| Chicken & Egg            (38pt, English)         |  HEADER MODULE (178pt)
-| Ayam & Telur             (21pt, Indonesian)      |
-| * I can ... / Saya bisa ...   (objective strip)  |
-+--------------------------------------------------+
-| (A) Instruction bar  EN 18pt / ID 13pt           |
-|                                                  |  CONTENT AREA (~576pt)
-|   Image module  +  Activity module               |  36pt side margins,
-|   +  Vocabulary module (EN above ID)             |  large objects, lots of white space
-+--------------------------------------------------+
-| Brand            Page 1 / 5        (c) 2026 Brand|  FOOTER MODULE (70pt)
-|        licence text EN / ID                      |
-+--------------------------------------------------+
-```
-
-### Modules (all in `components.py`)
-| Module | Function | Content |
+| Template | Tema | Kata (Inggris / Indonesia) |
 |---|---|---|
-| Header | `header()` | age pill, name line, title EN/ID, learning objective EN/ID |
-| Instruction | `instruction()` | lettered badge + bilingual instruction |
-| Image | `art.draw_object()` | main + related illustration (colour / outline / shadow mode) |
-| Activity | in `templates.py` | matching, tracing, colouring, cut & paste, circle, shadow match |
-| Vocabulary | `word_pair()`, `vocab_card()` | English word over Indonesian word, dotted tracing |
-| Footer | `footer()` | brand, page n / total, copyright, licence |
+| A | 01 Peternakan (Farm) | cow/sapi, chicken/ayam, duck/bebek, sheep/domba, horse/kuda |
+| B | 02 Hewan Laut (Sea Animals) | fish/ikan, whale/paus, crab/kepiting, octopus/gurita, turtle/penyu |
+| C | 03 Buah-buahan (Fruits) | apple/apel, banana/pisang, orange/jeruk, pineapple/nanas, grape/anggur |
+| D | 04 Sayuran (Vegetables) | carrot/wortel, spinach/bayam, tomato/tomat, corn/jagung, potato/kentang |
+| E | 05 Kendaraan (Vehicles) | car/mobil, bus/bus, train/kereta, ship/kapal, airplane/pesawat |
+| F | 06 Anggota Tubuh (Body Parts) | eye/mata, nose/hidung, ear/telinga, mouth/mulut, hand/tangan |
+| G | 07 Keluarga & Rumah (Family & Home) | father/ayah, mother/ibu, sibling/kakak, room/kamar, door/pintu |
+| H | 08 Perlengkapan Sekolah (School Things) | book/buku, pencil/pensil, bag/tas, eraser/penghapus, table/meja |
+| I | 09 Cuaca & Alam (Weather & Nature) | rain/hujan, cloud/awan, moon/bulan, star/bintang, tree/pohon |
+| J | 10 Makanan & Minuman (Food & Drink) | rice/nasi, bread/roti, milk/susu, water/air, egg/telur |
 
-### Visual style
-* Cartoon vector, 3.4 pt dark-navy outlines (`#2B2B3A`), flat fills, round shapes, smiling faces, no backgrounds.
-* Palette: coral `#FF7A6B`, sky `#4FB3E8`, sun `#FFC83D`, mint `#4CC9A0`, grape `#9B7BE0` + 12% tints. One accent colour per template, all share the same stripe/header/footer.
-* Type: Fredoka/Baloo if present in `assets/fonts/` (recommended), else DejaVu Sans Bold. Words 24-42 pt, instructions 13-18 pt.
+Isi tema datang dari Excel, bukan dari kode. Menambah tema baru = menambah 5 baris dengan huruf Template baru (K, L, ...).
 
-### Templates (v2.0: 10 pre-writing worksheets, all follow "from {OBJECT} to {RELATION}")
-| Key | Name (EN / ID) | What the child does | Layout |
-|---|---|---|---|
-| A | Vertical Lines / Garis Tegak | trace straight lines top to bottom | 4 tall columns (big dots, dashes, road, free draw) |
-| B | Horizontal Lines / Garis Datar | trace straight lines left to right | 5 rows, easy to hard |
-| C | Diagonal Lines / Garis Miring | trace slanted lines (up and down) | 2x2 panels, partner in the opposite corner |
-| D | Zigzag Lines / Garis Zigzag | trace zigzags | 5 rows |
-| E | Curved Lines / Garis Lengkung | trace hills, valleys, S-curves | 5 rows |
-| F | Wavy Lines / Garis Gelombang | trace waves of 2, 3, 4 cycles | 5 rows |
-| G | Circles & Spirals / Lingkaran & Spiral | go round circles and spirals around the picture | 2x3 panels |
-| H | Mixed Patterns / Pola Campuran | trace steps, scallops, loops, zigzag+wave, square wave | 5 rows |
-| I | Path Tracing / Mengikuti Jalur | follow a road; two forks: pick the road to the partner | 3 wide panels |
-| J | Shape Tracing / Menebalkan Bentuk Dasar | trace circle, square, triangle, rectangle, oval, diamond | 2x3 panels |
-
-Every line has 5 difficulty styles, easy to hard: big dots, dashes, small dots, a road to stay inside, and free draw.
-Default product = A-J (10 pages). Use `--templates A,B,C` or the `Templates` column for per-row overrides.
-
-**Legacy templates (v1.x)** are still available as `LA`..`LI`: LA Animal Matching, LB Vocabulary, LC Find and Circle,
-LD Cut and Paste, LE Coloring, LF Shadow Matching, LG Counting, LH Horizontal Lines, LI Diagonal Lines.
-Example: `--templates LA,LB,LC,LD,LE` rebuilds the old 5-page product, pixel-identical to v1.x.
-
----------------------------------------------------------------------
-## 2. Database mapping rules
-
-| Excel column | Used for | Rules |
-|---|---|---|
-| `ID` | unique key, random seed | text; `1` is auto-padded to `001`; duplicates = FAIL |
-| `Category` | output folder | `&` -> `and`, spaces -> `_` ("Animals & Their Products" -> `Animals_and_Their_Products`) |
-| `Object_EN` / `Object_ID` | main picture, title, vocabulary card #1 | auto Title Case; EN verified against glossary |
-| `Relation_EN` / `Relation_ID` | related picture, vocabulary card #2 | same |
-| `Image_Prompt` | AI artwork prompt (`--export-prompts`) and QC | must mention Object_EN; no banned style words |
-| `Countable` (optional) | "a chicken" vs "honey" | Y / N / blank = auto (uncountable list in `config.py`) |
-| `Templates` (optional) | per-row template set | e.g. `A,C,E` |
-
-### Placeholders (any template text can use them)
-`{OBJECT_EN} {OBJECT_ID} {RELATION_EN} {RELATION_ID}` plus `_LOWER` / `_UPPER` variants
-(`{OBJECT_EN_LOWER}` -> "chicken"), `{A_OBJECT_EN}` -> "a chicken" / "honey", `{A_RELATION_EN}`, `{CATEGORY}`, `{ID}`.
-An unknown placeholder never reaches a PDF: QC marks the row FAIL.
-
-Example: Bee / Lebah / Honey / Madu ->
+## Isi satu halaman (A4 portrait)
 ```
-Bee      Honey
-Lebah    Madu
-"This is a bee."  "Ini adalah lebah."   "This is honey."  "Ini adalah madu."
+[garis warna merek]
+[USIA 3-5]                                  Nama / Name: ______
+01 Farm                       <- judul (Inggris)
+Peternakan - Menebalkan Kata  <- judul (Indonesia)
+* Saya bisa menebalkan dan mencocokkan kata tentang peternakan
+(A) Tebalkan kata-katanya. Tarik garis ke gambar yang cocok.
+ [gambar] o        o [ Cow   ........ huruf titik-titik ]
+ [gambar] o        o [ Sapi  ........                  ]     5 baris; gambar DIACAK,
+ ...                                                          kata berurutan
+Merek | Halaman n / total | (c) tahun merek | teks lisensi EN/ID
 ```
+Gaya: kartun vektor, garis tebal navy 3,4 pt, warna cerah lembut, objek besar, banyak ruang kosong.
+Warna aksen per tema bergiliran: merah muda, biru, hijau, ungu (kuning sengaja dihindari: teksnya terlalu pucat saat dicetak).
 
-### Distractors
-Matching / circle / cut-paste pages need extra pictures. They come from the other database rows (+ the built-in art library),
-chosen with a seed of `ID + template`, so a rebuild always gives the identical page.
-Distractor *pairs* are used in A and D so every extra picture also has a valid partner.
+## Data Excel (sheet "Database", satu baris = satu kata)
+| Kolom | Isi |
+|---|---|
+| ID | unik, teks (`001`) |
+| Template | huruf A-Z; **5 baris dengan huruf sama = 1 tema** |
+| Theme_EN / Theme_ID | nama tema, sama di kelima baris |
+| Word_EN / Word_ID | kata dan terjemahannya (harus ada di `data/approved_vocab.csv`) |
+| Image_Prompt | harus menyebut Word_EN |
 
-### Artwork lookup (per word)
-1. `assets/images/<word>.png` (transparent PNG, AI or designer; optional `<word>_line.png` for colouring)
-2. built-in vector drawer in `art.py` (chicken, egg, bee, honey, cow, milk, sheep, wool, tree, apple)
-3. generic letter badge (QC warns "needs artwork")
-
----------------------------------------------------------------------
-## 3. Automation workflow
-
+## Alur kerja
 ```
- Excel (Database sheet)
-        |  database.load_rows()      normalise headers, pad IDs, Title Case
-        v
- QC  (qc.check_rows)  ---- qc_report.csv
-   FAIL -> row skipped        WARN -> built, flagged for human review      PASS
-        v
- (optional) --export-prompts -> image_prompts.csv  (style-locked prompts for Midjourney / DALL-E / etc.)
-        v
- for each row (parallel with --workers N, skipped if unchanged hash):
-     render_pdf       header + template + footer per page  -> English_Indonesian_Worksheet.pdf
-     render_preview   all pages as contact sheet            -> Preview.png
-     render_cover     square 2000 px listing image          -> Cover.png
-                      600 px thumbnail                      -> Thumbnail.png
-        v
- manifest.csv  (ID, folder, rebuilt?, pages, QC)  -> feed to Etsy / TPT / Drive upload scripts
+Excel --load_themes--> QC (qc.py) --FAIL: tema dilewati / WARN: dibuat tapi perlu dicek-->
+   per tema: PDF 1 halaman + Preview + Cover + Thumbnail      -> PRODUCTS/Tracing_Words/01_Farm/ ...
+   semua tema lolos: PDF paket (1 halaman per tema)           -> PRODUCTS/Tracing_Words/Tracing_Words_Complete_Pack/
+   qc_report.csv, manifest.csv, (image_prompts.csv)
+```
+Dijalankan ulang tidak membangun ulang tema yang tidak berubah (sidik jari data + versi template + file gambar).
+
+## Pemeriksaan kualitas (qc.py)
+| Pemeriksaan | Hasil |
+|---|---|
+| Tema harus tepat 5 kata; kolom wajib terisi; ID dan kata tidak dobel | FAIL |
+| Terjemahan berbeda dari glosarium | **FAIL** |
+| Kata belum ada di glosarium | WARN (cek usia, ejaan, terjemahan manual) |
+| Kata panjang (> 12 huruf / > 2 kata) atau terlalu lebar untuk huruf tracing | WARN |
+| Belum ada gambar untuk kata itu | WARN (dipakai lencana huruf) |
+| Image_Prompt tidak menyebut kata / memuat kata terlarang (realistic, scary, photo ...) | WARN / FAIL |
+
+Pemeriksaan terjemahan hanya sebaik glosarium Anda: kata di luar glosarium tidak pernah dipercaya diam-diam.
+
+## Gambar
+Urutan pencarian per kata: (1) `assets/images/<kata>.png` (PNG transparan buatan Anda) -> (2) gambar vektor bawaan di `art.py` / `art_words.py`
+(50 kata contoh) -> (3) lencana huruf (QC memberi WARN). `--export-prompts` menghasilkan `image_prompts.csv` untuk membuat PNG dengan AI.
+
+## Struktur kode
+```
+create_sample_database.py   pembuat Excel contoh (10 tema x 5 kata)
+data/  worksheet_database.xlsx   approved_vocab.csv (69 kata terverifikasi)
+assets/images/  assets/fonts/    gambar PNG dan font opsional (Fredoka / Baloo 2)
+worksheet_engine/
+  config.py       merek, warna, font, grid halaman, ambang QC, TEMPLATE_VERSION
+  database.py     Excel -> Theme/Word, nama folder aman
+  qc.py           pemeriksaan kualitas
+  art.py          mesin gambar (Ink) + pencarian PNG; art_words.py = 43 ilustrasi tema
+  components.py   header, bilah instruksi, footer, huruf titik-titik, garis menulis
+  templates.py    SATU tata letak "Tracing Words" + teks bilingual
+  render.py       PDF, pratinjau, sampul, thumbnail, paket
+  main.py         CLI
+samples/          hasil contoh yang disetujui (pembanding)
 ```
 
-### Quality gate (`qc.py`)
-| Check | How | Result |
-|---|---|---|
-| Required fields, duplicate ID/object | structural | FAIL |
-| Simple English / age level | <= 2 words, <= 12 letters, letters only; glossary `Age_Min` | WARN |
-| Indonesian translation correct | must equal `data/approved_vocab.csv` entry | **FAIL if different**, WARN if word unknown |
-| Spelling | glossary, then system dictionary if present | WARN |
-| Images match vocabulary | art exists for both words; prompt mentions the object | WARN |
-| Style safety | prompt contains realistic / scary / photo ... | FAIL |
-| Printable layout | large words must fit the card at >= 30 pt | WARN |
-
-Honest limitation: translation and age-level checks are only as good as the glossary. Words **not** in it are warned, never silently
-trusted: have a native Indonesian speaker add them to `approved_vocab.csv` once, then they pass automatically forever.
-Use `--strict` to treat warnings as failures for bulk production runs.
-
-### Scaling to thousands
-* `--workers 8` parallel rows; hash-based skip means re-running 5,000 rows only rebuilds changed rows (edit text, brand, template version or an image).
-* To restyle everything: change `config.py` (brand/palette) and bump `TEMPLATE_VERSION`.
-* New template: write `draw_k(c, row, pool, rng, accent)` in `templates.py` (use `tracing.py` for lines), add it to `TEMPLATES`.
-
----------------------------------------------------------------------
-## 4. Python structure
-```
-worksheet_system/
-|- create_sample_database.py   builds the example Excel file
-|- requirements.txt
-|- data/
-|   |- worksheet_database.xlsx   the content database
-|   '- approved_vocab.csv        verified EN->ID glossary used by QC
-|- assets/
-|   |- images/                   optional <word>.png / <word>_line.png
-|   '- fonts/                    optional Fredoka-Bold/Regular.ttf
-|- worksheet_engine/
-|   |- config.py       brand, palette, fonts, page grid, QC thresholds
-|   |- database.py     Excel -> Row objects, placeholder engine, folder naming
-|   |- qc.py           quality checks + report
-|   |- art.py          vector illustration library + PNG loader (color/outline/shadow)
-|   |- components.py   header, instruction, footer, dotted tracing, panels
-|   |- tracing.py      line/shape engine: geometry (zigzag, wave, spiral...), 5 line styles, markers
-|   |- templates.py    the 10 active templates A-J (+ LA..LI registration)
-|   |- templates_legacy.py  v1.x templates (matching, vocabulary, colouring, counting...)
-|   |- render.py       PDF, preview sheet, cover, thumbnail, change detection
-|   '- main.py         CLI
-'- PRODUCTS/           output (see below)
-```
-
-## 5. Sample output (5 rows)
-```
-PRODUCTS/
-  Animals_and_Their_Products/
-    Chicken/  English_Indonesian_Worksheet.pdf  Preview.png  Cover.png  Thumbnail.png
-    Bee/ Cow/ Sheep/   (same files)
-  Plants_and_Their_Fruits/
-    Tree/              (same files)
-  qc_report.csv  manifest.csv  image_prompts.csv
-```
-
-## Bundles (every page a different animal)
-One PDF where each page uses a different row, e.g. A = Chicken & Egg, B = Bee & Honey, C = Cow & Milk.
-See `PANDUAN_BUNDLE.md` (Indonesian). Quick start:
-```
-python -m worksheet_engine.main --db data/worksheet_database.xlsx --out PRODUCTS --bundle Animal_Friends_Pack_1 --ids 001,002,003,004,005
-python -m worksheet_engine.main --db data/worksheet_database.xlsx --out PRODUCTS --bundle Mini_Pack --pages "A=002,C=004,J=005"
-python -m worksheet_engine.main --db data/worksheet_database.xlsx --out PRODUCTS --bundles-sheet     # sheet 'Bundles': Bundle | Template | ID
-```
-Output: `PRODUCTS/Bundles/<name>/` + `manifest_bundles.csv`.
-
-## Adding a template
-See `PANDUAN_TAMBAH_TEMPLATE.md` (Indonesian, step by step, with the Counting template as the worked example).
-
-## Notes / next steps
-* The built-in vector art covers the 10 sample words so the system runs offline. For the full catalogue, generate PNGs from
-  `image_prompts.csv` (prompts already include the style lock) and drop them in `assets/images/`; no code change is needed.
-* Add an answer-key page (template G) for teacher/parent editions if you plan to sell them.
-* Use a rounded child-friendly font (Fredoka, Baloo 2) for the best handwriting-practice look; both are free (OFL).
+## Skala dan versi
+* `--workers 8` membangun banyak tema sekaligus. Ubah merek/warna di `config.py`, lalu naikkan `TEMPLATE_VERSION` agar semua dibuat ulang.
+* **Versi sebelumnya** (produk "pasangan objek" dengan template pra-menulis A-J, template matching, mode bundle) tersimpan di tag Git `v2.1`:
+  `git checkout v2.1`.

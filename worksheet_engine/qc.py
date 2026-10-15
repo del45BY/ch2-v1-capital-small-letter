@@ -1,6 +1,6 @@
 """
-Pre-generation quality check.  Levels: FAIL (row skipped) | WARN (built, needs human review) | PASS.
-Vocabulary + translation are verified against data/approved_vocab.csv (human-curated glossary).
+Pemeriksaan kualitas sebelum membuat produk.  Level: FAIL (tema dilewati) | WARN (dibuat, perlu dicek manusia) | PASS.
+Kosakata dan terjemahan diverifikasi terhadap data/approved_vocab.csv (daftar yang Anda setujui sendiri).
 """
 import csv
 import re
@@ -9,14 +9,13 @@ from pathlib import Path
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from .art import has_art
 from .config import DATA, FONT_BOLD, QC
-from .database import slug
-
-TEMPLATE_PLACEHOLDER_OK = True
+from .database import WORDS_PER_THEME, slug
 
 
 @dataclass
 class Issue:
-    row_id: str
+    theme: str      # kode template (A..J)
+    ref: str        # ID kata (atau '-' bila masalah level tema)
     level: str      # FAIL | WARN
     check: str
     message: str
@@ -36,82 +35,81 @@ def _system_words():
     return {w.strip().lower() for w in p.open(encoding="utf-8", errors="ignore")} if p.exists() else set()
 
 
-def check_rows(rows, glossary=None) -> list:
+def check_themes(themes, glossary=None) -> list:
     glossary = glossary if glossary is not None else load_glossary()
     sysdict = _system_words()
-    issues, seen_ids, seen_pairs = [], set(), set()
+    issues, seen_ids = [], {}
 
-    def add(r, lvl, chk, msg):
-        issues.append(Issue(r.id, lvl, chk, msg))
-
-    for r in rows:
-        # --- structure
-        for fld, val in [("ID", r.id), ("Category", r.category), ("Object_EN", r.obj_en), ("Object_ID", r.obj_id),
-                         ("Relation_EN", r.rel_en), ("Relation_ID", r.rel_id), ("Image_Prompt", r.prompt)]:
-            if not val:
-                add(r, "FAIL", "required", f"{fld} is empty")
-        if r.id in seen_ids:
-            add(r, "FAIL", "duplicate", f"duplicate ID {r.id}")
-        seen_ids.add(r.id)
-        key = (r.category.lower(), r.obj_en.lower())
-        if key in seen_pairs:
-            add(r, "FAIL", "duplicate", f"duplicate object '{r.obj_en}' in category (output folder would collide)")
-        seen_pairs.add(key)
-
-        # --- vocabulary, spelling, translation, per word
-        for en, id_, role in [(r.obj_en, r.obj_id, "Object"), (r.rel_en, r.rel_id, "Relation")]:
-            if not en or not id_:
-                continue
-            low = en.lower()
-            if not re.fullmatch(r"[A-Za-z]+(?:[ '-][A-Za-z]+)*", en):
-                add(r, "FAIL", "spelling", f"{role}_EN '{en}' contains invalid characters")
-            if len(en.split()) > QC["max_words"] or len(en) > QC["max_word_len"]:
-                add(r, "WARN", "age-level", f"'{en}' is long ({len(en)} chars) - check it suits ages 3-5")
-            if low in glossary:
-                if id_.lower() not in glossary[low]:
-                    add(r, "FAIL", "translation",
-                        f"'{en}' -> '{id_}' differs from verified glossary: {sorted(glossary[low])}")
-            else:
-                add(r, "WARN", "vocabulary",
-                    f"'{en}' not in approved glossary - verify age level, spelling & '{id_}' manually")
-                if sysdict and low not in sysdict:
-                    add(r, "WARN", "spelling", f"'{en}' not found in English dictionary")
-            # printable layout: can the word stay large on the vocabulary card?
-            if stringWidth(en, FONT_BOLD, QC["min_vocab_font_pt"]) > 300 or \
-               stringWidth(id_, FONT_BOLD, QC["min_vocab_font_pt"] - 4) > 300:
-                add(r, "WARN", "layout", f"'{en}'/'{id_}' too wide for large vocabulary text")
-            # image availability
-            if not has_art(en):
-                add(r, "WARN", "image", f"no artwork for '{en}': add assets/images/{slug(en)}.png (generic badge used)")
-
-        # --- image prompt relevance & style safety
-        pl = r.prompt.lower()
-        if r.obj_en and r.obj_en.lower() not in pl:
-            add(r, "WARN", "image-match", f"Image_Prompt does not mention '{r.obj_en}'")
-        for bad in QC["banned_prompt_words"]:
-            if bad in pl:
-                add(r, "FAIL", "image-style", f"Image_Prompt contains banned word '{bad}'")
-
-        # --- placeholder leakage test
+    for t in themes:
+        add = lambda ref, lvl, chk, msg: issues.append(Issue(t.key, ref, lvl, chk, msg))
+        for lvl, chk, msg in t.issues:
+            add("-", lvl, chk, msg)
+        if not re.fullmatch(r"[A-Z]", t.key):
+            add("-", "FAIL", "template", f"kode Template '{t.key}' harus satu huruf A-Z")
+        if not t.en or not t.idn:
+            add("-", "FAIL", "required", "Theme_EN / Theme_ID kosong")
+        if len(t.words) != WORDS_PER_THEME:
+            add("-", "FAIL", "word-count", f"tema {t.key} berisi {len(t.words)} kata; harus tepat {WORDS_PER_THEME}")
         try:
-            r.fmt("{OBJECT_EN}{OBJECT_ID}{RELATION_EN}{RELATION_ID}{A_OBJECT_EN}")
+            t.fmt("{THEME_EN}{THEME_ID}{NUM}")
         except KeyError as e:
-            add(r, "FAIL", "placeholder", f"unknown placeholder {e}")
+            add("-", "FAIL", "placeholder", f"placeholder tidak dikenal {e}")
+
+        seen_words = set()
+        for w in t.words:
+            for fld, val in [("ID", w.wid), ("Word_EN", w.en), ("Word_ID", w.idn), ("Image_Prompt", w.prompt)]:
+                if not val:
+                    add(w.wid or "?", "FAIL", "required", f"{fld} kosong")
+            if w.wid in seen_ids:
+                add(w.wid, "FAIL", "duplicate", f"ID {w.wid} dobel (juga di template {seen_ids[w.wid]})")
+            seen_ids[w.wid] = t.key
+            if w.en.lower() in seen_words:
+                add(w.wid, "FAIL", "duplicate", f"kata '{w.en}' dobel di tema {t.key}")
+            seen_words.add(w.en.lower())
+            if not w.en or not w.idn:
+                continue
+
+            low = w.en.lower()
+            if not re.fullmatch(r"[A-Za-z]+(?:[ '-][A-Za-z]+)*", w.en):
+                add(w.wid, "FAIL", "spelling", f"Word_EN '{w.en}' berisi karakter tidak valid")
+            if len(w.en.split()) > QC["max_words"] or len(w.en) > QC["max_word_len"]:
+                add(w.wid, "WARN", "age-level", f"'{w.en}' panjang ({len(w.en)} huruf), cek cocok untuk usia 3-5")
+            if low in glossary:
+                if w.idn.lower() not in glossary[low]:
+                    add(w.wid, "FAIL", "translation",
+                        f"'{w.en}' -> '{w.idn}' berbeda dari glosarium: {sorted(glossary[low])}")
+            else:
+                add(w.wid, "WARN", "vocabulary",
+                    f"'{w.en}' belum ada di glosarium - cek usia, ejaan, dan '{w.idn}' secara manual")
+                if sysdict and low not in sysdict:
+                    add(w.wid, "WARN", "spelling", f"'{w.en}' tidak ada di kamus Inggris")
+            # muat di kotak tracing?
+            if stringWidth(w.en, FONT_BOLD, QC["min_vocab_font_pt"]) > 300 or \
+               stringWidth(w.idn, FONT_BOLD, QC["min_vocab_font_pt"] - 8) > 300:
+                add(w.wid, "WARN", "layout", f"'{w.en}'/'{w.idn}' terlalu lebar untuk huruf tracing besar")
+            if not has_art(w.en):
+                add(w.wid, "WARN", "image", f"belum ada gambar '{w.en}': taruh assets/images/{slug(w.en)}.png (dipakai lencana huruf)")
+            pl = w.prompt.lower()
+            if w.en and w.en.lower() not in pl:
+                add(w.wid, "WARN", "image-match", f"Image_Prompt tidak menyebut '{w.en}'")
+            for bad in QC["banned_prompt_words"]:
+                if bad in pl:
+                    add(w.wid, "FAIL", "image-style", f"Image_Prompt memuat kata terlarang '{bad}'")
     return issues
 
 
-def row_status(rows, issues) -> dict:
-    out = {r.id: "PASS" for r in rows}
+def theme_status(themes, issues) -> dict:
+    out = {t.key: "PASS" for t in themes}
     for i in issues:
         if i.level == "FAIL":
-            out[i.row_id] = "FAIL"
-        elif out.get(i.row_id) != "FAIL":
-            out[i.row_id] = "WARN"
+            out[i.theme] = "FAIL"
+        elif out.get(i.theme) != "FAIL":
+            out[i.theme] = "WARN"
     return out
 
 
 def write_report(issues, path):
     with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f); w.writerow(["ID", "Level", "Check", "Message"])
+        w = csv.writer(f); w.writerow(["Template", "ID", "Level", "Check", "Message"])
         for i in issues:
-            w.writerow([i.row_id, i.level, i.check, i.message])
+            w.writerow([i.theme, i.ref, i.level, i.check, i.message])

@@ -21,13 +21,15 @@ def text_fit(c, x, y, text, font, max_size, max_w, color, align="left", min_size
     return size
 
 
-def dotted_text(c, x, y, text, size, color="#8A8AA0", max_w=None):
-    """Tracing text: dotted outline letters."""
+def dotted_text(c, x, y, text, size, color="#7C7C94", max_w=None, font=None, lw=1.25, dash=(2.2, 3.4)):
+    """Huruf tracing: garis tepi huruf berupa titik-titik. Font tipis + titik renggang agar terbaca."""
+    font = font or FONT_REG
     if max_w:
-        size = fit_size(text, FONT_BOLD, size, max_w, 12)
+        size = fit_size(text, font, size, max_w, 14)
     c.saveState()
-    t = c.beginText(x, y); t.setFont(FONT_BOLD, size); t.setTextRenderMode(1)
-    c.setStrokeColor(hx(color)); c.setLineWidth(1.9); c.setDash(2.6, 3.4)
+    t = c.beginText(x, y); t.setFont(font, size); t.setTextRenderMode(1)
+    c.setStrokeColor(hx(color)); c.setLineWidth(lw); c.setDash(*dash)
+    c.setLineCap(1); c.setLineJoin(1)
     t.textOut(text); c.drawText(t)
     c.restoreState()
 
@@ -96,7 +98,7 @@ def scissors_line(c, x1, x2, y):
 
 
 # ------------------------------------------------------------------ MODULE 1: header
-def header(c, row, tpl, accent):
+def header(c, ctx, tpl, accent, title_en, title_id):
     top = PAGE_H
     # brand stripe
     seg = PAGE_W / len(BRAND_STRIPE)
@@ -120,8 +122,6 @@ def header(c, row, tpl, accent):
     c.line(x0 + lw + 6, y, PAGE_W - MARGIN, y)
 
     # titles
-    title_en = row.fmt("{OBJECT_EN} & {RELATION_EN}")
-    title_id = row.fmt("{OBJECT_ID} & {RELATION_ID}")
     text_fit(c, MARGIN, top - 92, title_en, FONT_BOLD, 38, CONTENT_W, PALETTE["ink"])
     text_fit(c, MARGIN, top - 119, title_id, FONT_BOLD, 21, CONTENT_W, PALETTE[accent])
 
@@ -129,8 +129,8 @@ def header(c, row, tpl, accent):
     by = top - 176
     panel(c, MARGIN, by, CONTENT_W, 44, fill=TINT[accent], r=12)
     star(c, MARGIN + 24, by + 22, 11, PALETTE["sun"])
-    text_fit(c, MARGIN + 46, by + 26, "I can " + row.fmt(tpl["objective_en"]), FONT_BOLD, 12, CONTENT_W - 60, PALETTE["ink"])
-    text_fit(c, MARGIN + 46, by + 9, "Saya bisa " + row.fmt(tpl["objective_id"]), FONT_REG, 10.5, CONTENT_W - 60, PALETTE["grey"])
+    text_fit(c, MARGIN + 46, by + 26, "I can " + ctx.fmt(tpl["objective_en"]), FONT_BOLD, 12, CONTENT_W - 60, PALETTE["ink"])
+    text_fit(c, MARGIN + 46, by + 9, "Saya bisa " + ctx.fmt(tpl["objective_id"]), FONT_REG, 10.5, CONTENT_W - 60, PALETTE["grey"])
 
 
 # ------------------------------------------------------------------ MODULE: instruction bar

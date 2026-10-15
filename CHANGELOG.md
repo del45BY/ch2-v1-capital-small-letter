@@ -3,6 +3,21 @@
 Aturan: setiap perubahan ditulis di sini (terbaru di atas): tanggal, apa yang berubah, dan alasannya.
 Setiap kali tampilan template berubah, naikkan `TEMPLATE_VERSION` di `worksheet_engine/config.py`.
 
+## [3.0] - 2026-10-14
+### Diubah (BESAR: semua template diganti)
+- Model data baru: **1 tema = 1 template (A-J) = 5 kata**. Sheet Excel `Database`: ID | Template | Theme_EN | Theme_ID | Word_EN | Word_ID | Image_Prompt (satu baris = satu kata).
+- Template baru: 10 halaman "Tracing Words": A Peternakan, B Hewan Laut, C Buah-buahan, D Sayuran, E Kendaraan, F Anggota Tubuh, G Keluarga & Rumah, H Perlengkapan Sekolah, I Cuaca & Alam, J Makanan & Minuman. Anak menebalkan kata (huruf titik-titik EN dan ID) dan menarik garis ke gambar yang cocok (gambar diacak, tanpa satu pun sejajar dengan katanya).
+- Keluaran: `PRODUCTS/Tracing_Words/<NN_Tema>/` (PDF 1 halaman, Preview, Cover, Thumbnail) per tema + `Tracing_Words_Complete_Pack/` (PDF 10 halaman). CLI: `--only`, `--no-pack`, `--no-themes`, `--pack-name`.
+- QC ditulis ulang untuk model tema (wajib tepat 5 kata, terjemahan dibandingkan glosarium, dll). `TEMPLATE_VERSION` = 3.0.
+### Ditambahkan
+- `art_words.py`: 43 ilustrasi vektor baru (total 50 kata punya gambar).
+- Glosarium `approved_vocab.csv` diperluas menjadi 69 kata.
+- Huruf tracing memakai font tipis + titik renggang (versi tebal tampak seperti bintik dan tidak terbaca).
+### Dihapus
+- Template lama (pasangan objek, pra-menulis garis A-J, matching/kosakata, mode bundle) dan `tracing.py`, `templates_legacy.py`. Seluruhnya tetap tersedia di tag Git `v2.1`.
+### Catatan data
+- "Sibling" dipetakan ke "Kakak" sesuai permintaan, padahal "kakak" = saudara yang lebih tua; pertimbangkan "Brother/Sister".
+
 ## [2.1] - 2026-10-14
 ### Ditambahkan
 - Mode bundle: satu PDF dengan tiap halaman memakai baris (hewan dan pasangan) berbeda. Opsi `--bundle`, `--ids`, `--pages`, `--bundles-sheet`; sheet Excel opsional `Bundles` (Bundle | Template | ID).

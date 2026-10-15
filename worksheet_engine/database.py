@@ -1,16 +1,21 @@
-"""Reads the Excel database and provides the {PLACEHOLDER} engine."""
+"""
+Membaca database Excel.  Model data v3:
+
+  1 TEMA (= 1 template, kode A..J)  berisi  5 KATA.
+  Sheet "Database" (satu baris = satu kata):
+      ID | Template | Theme_EN | Theme_ID | Word_EN | Word_ID | Image_Prompt
+  Contoh:  001 | A | Farm | Peternakan | Cow | Sapi | cute cow
+"""
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 import pandas as pd
-from .config import UNCOUNTABLE_EN
 
-REQUIRED = ["ID", "Category", "Object_EN", "Object_ID", "Relation_EN", "Relation_ID", "Image_Prompt"]
-OPTIONAL = ["Countable", "Templates", "Status"]   # optional extra columns
+REQUIRED = ["ID", "Template", "Theme_EN", "Theme_ID", "Word_EN", "Word_ID", "Image_Prompt"]
+WORDS_PER_THEME = 5
 
 
 def safe_name(text: str) -> str:
-    """Folder-safe name: 'Animals & Their Products' -> 'Animals_and_Their_Products'."""
+    """Nama aman untuk folder: 'Weather & Nature' -> 'Weather_and_Nature'."""
     t = text.strip().replace("&", "and")
     t = re.sub(r"[^\w\s-]", "", t, flags=re.UNICODE)
     return re.sub(r"[\s-]+", "_", t).strip("_")
@@ -20,53 +25,33 @@ def slug(text: str) -> str:
     return safe_name(text).lower()
 
 
-def _article(word: str, countable: bool) -> str:
-    if not countable:
-        return word.lower()
-    return ("an " if word[:1].lower() in "aeiou" else "a ") + word.lower()
+@dataclass
+class Word:
+    wid: str
+    en: str
+    idn: str                 # kata Indonesia
+    prompt: str = ""
 
 
 @dataclass
-class Row:
-    id: str
-    category: str
-    obj_en: str
-    obj_id: str
-    rel_en: str
-    rel_id: str
-    prompt: str
-    countable: str = ""          # "", "Y" or "N"  (blank = auto)
-    templates: str = ""          # e.g. "A,B,C" (blank = default set)
-    status: str = ""
-    extra: dict = field(default_factory=dict)
-
-    # ---- helpers
-    def is_countable(self, en: str) -> bool:
-        if self.countable.upper() == "N":
-            return False
-        if self.countable.upper() == "Y":
-            return True
-        return en.lower() not in UNCOUNTABLE_EN
+class Theme:
+    key: str                 # kode template: A..J
+    num: str                 # nomor urut tema: 01..10
+    en: str
+    idn: str
+    words: list = field(default_factory=list)
+    issues: list = field(default_factory=list)   # (level, check, message) dari loader
 
     @property
-    def folder(self):
-        return Path(safe_name(self.category)) / safe_name(self.obj_en)
+    def folder(self) -> str:
+        return f"{self.num}_{safe_name(self.en)}"
 
     def tokens(self) -> dict:
-        t = {
-            "ID": self.id, "CATEGORY": self.category,
-            "OBJECT_EN": self.obj_en, "OBJECT_ID": self.obj_id,
-            "RELATION_EN": self.rel_en, "RELATION_ID": self.rel_id,
-        }
-        for k in ("OBJECT_EN", "OBJECT_ID", "RELATION_EN", "RELATION_ID"):
-            t[k + "_LOWER"] = t[k].lower()
-            t[k + "_UPPER"] = t[k].upper()
-        t["A_OBJECT_EN"] = _article(self.obj_en, self.is_countable(self.obj_en))
-        t["A_RELATION_EN"] = _article(self.rel_en, self.is_countable(self.rel_en))
-        return t
+        return {"KEY": self.key, "NUM": self.num, "THEME_EN": self.en, "THEME_ID": self.idn,
+                "THEME_EN_LOWER": self.en.lower(), "THEME_ID_LOWER": self.idn.lower()}
 
     def fmt(self, text: str) -> str:
-        """Replace {OBJECT_EN} style placeholders. Unknown placeholder -> KeyError (caught by QC)."""
+        """Ganti {THEME_EN} dst. Placeholder tak dikenal -> KeyError (ditangkap QC)."""
         toks = self.tokens()
         return re.sub(r"\{([A-Z_]+)\}", lambda m: toks[m.group(1)], text)
 
@@ -75,48 +60,33 @@ def _norm_header(h: str) -> str:
     return re.sub(r"[\s]+", "_", str(h).strip()).lower()
 
 
-def load_rows(path) -> list:
-    df = pd.read_excel(path, dtype=str, sheet_name=0).fillna("")
+def load_themes(path) -> list:
+    df = pd.read_excel(path, dtype=str, sheet_name="Database").fillna("")
     cols = {_norm_header(c): c for c in df.columns}
     missing = [c for c in REQUIRED if c.lower() not in cols]
     if missing:
-        raise ValueError(f"Excel is missing columns: {missing}")
-    rows = []
-    for _, r in df.iterrows():
-        get = lambda name: str(r[cols[name.lower()]]).strip() if name.lower() in cols else ""
-        rid = get("ID")
-        if not rid and not get("Object_EN"):
-            continue                                  # blank line
-        if rid.isdigit():
-            rid = rid.zfill(3)                        # Excel turns 001 into 1
-        rows.append(Row(
-            id=rid, category=get("Category"),
-            obj_en=get("Object_EN").title(), obj_id=get("Object_ID").title(),
-            rel_en=get("Relation_EN").title(), rel_id=get("Relation_ID").title(),
-            prompt=get("Image_Prompt"),
-            countable=get("Countable"), templates=get("Templates"), status=get("Status"),
-        ))
-    return rows
+        raise ValueError(f"Sheet 'Database' kekurangan kolom: {missing}")
+    get = lambda r, name: str(r[cols[name.lower()]]).strip()
 
-
-def load_bundles(path) -> dict:
-    """Optional sheet named 'Bundles' with columns: Bundle | Template | ID  (one line = one page).
-    Returns {bundle_name: [(template_key_or_empty, id), ...]} in sheet order."""
-    try:
-        df = pd.read_excel(path, dtype=str, sheet_name="Bundles").fillna("")
-    except ValueError:                       # sheet does not exist
-        return {}
-    cols = {_norm_header(c): c for c in df.columns}
-    for need in ("bundle", "id"):
-        if need not in cols:
-            raise ValueError("Sheet 'Bundles' needs columns: Bundle, Template (optional), ID")
-    out = {}
+    groups, order = {}, []
     for _, r in df.iterrows():
-        name = str(r[cols["bundle"]]).strip()
-        rid = str(r[cols["id"]]).strip()
-        if not name or not rid:
-            continue
-        rid = rid.zfill(3) if rid.isdigit() else rid
-        tpl = str(r[cols["template"]]).strip().upper() if "template" in cols else ""
-        out.setdefault(name, []).append((tpl, rid))
-    return out
+        key = get(r, "Template").upper()
+        if not key and not get(r, "Word_EN"):
+            continue                                        # baris kosong
+        wid = get(r, "ID")
+        wid = wid.zfill(3) if wid.isdigit() else wid        # Excel mengubah 001 jadi 1
+        if key not in groups:
+            groups[key] = {"en": get(r, "Theme_EN"), "idn": get(r, "Theme_ID"), "words": [], "names": set()}
+            order.append(key)
+        g = groups[key]
+        g["names"].add((get(r, "Theme_EN"), get(r, "Theme_ID")))
+        g["words"].append(Word(wid, get(r, "Word_EN").title(), get(r, "Word_ID").title(), get(r, "Image_Prompt")))
+
+    themes = []
+    for i, key in enumerate(sorted(order), 1):             # urut A, B, C ...
+        g = groups[key]
+        t = Theme(key=key, num=f"{i:02d}", en=g["en"], idn=g["idn"], words=g["words"])
+        if len(g["names"]) > 1:
+            t.issues.append(("WARN", "theme-name", f"nama tema tidak konsisten di template {key}: {sorted(g['names'])}"))
+        themes.append(t)
+    return themes
