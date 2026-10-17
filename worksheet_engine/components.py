@@ -34,12 +34,15 @@ def dotted_text(c, x, y, text, size, color="#7C7C94", max_w=None, font=None, lw=
     c.restoreState()
 
 
-def tracing_line(c, x, y, w, color="#C9C9D6"):
-    """Writing guide: baseline + dashed mid-line."""
+def tracing_line(c, x, y, w, color="#C9C9D6", mid=22, top=None):
+    """Garis bantu menulis: garis dasar (utuh), garis tengah putus-putus setinggi huruf kecil (mid),
+    dan opsional garis atas tipis setinggi huruf kapital (top)."""
     c.saveState()
     c.setStrokeColor(hx(color)); c.setLineWidth(1)
     c.line(x, y, x + w, y)
-    c.setDash(4, 4); c.line(x, y + 22, x + w, y + 22)
+    if top:
+        c.setStrokeColor(hx("#E4E4EE")); c.line(x, y + top, x + w, y + top); c.setStrokeColor(hx(color))
+    c.setDash(4, 4); c.line(x, y + mid, x + w, y + mid)
     c.restoreState()
 
 

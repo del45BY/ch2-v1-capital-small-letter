@@ -1,7 +1,7 @@
 # Mesin Lembar Kerja "Tracing Words" Dwibahasa (Inggris-Indonesia), usia 3-5 tahun
 
 Isi tabel Excel -> skrip membuat lembar kerja siap cetak (PDF), pratinjau, sampul, dan thumbnail.
-Satu tampilan merek yang sama, isi berbeda. Cara kerja anak: **menebalkan kata, lalu menarik garis ke gambar yang cocok.**
+Satu tampilan merek yang sama, isi berbeda. Cara kerja anak: **menebalkan kata (satu garis titik-titik di tengah goresan huruf), lalu menarik garis ke gambar yang cocok.**
 
 ```
 pip install -r requirements.txt
@@ -35,7 +35,7 @@ Isi tema datang dari Excel, bukan dari kode. Menambah tema baru = menambah 5 bar
 Peternakan - Menebalkan Kata  <- judul (Indonesia)
 * Saya bisa menebalkan dan mencocokkan kata tentang peternakan
 (A) Tebalkan kata-katanya. Tarik garis ke gambar yang cocok.
- [gambar] o        o [ Cow   ........ huruf titik-titik ]
+ [gambar] o        o [ Cow   . . . satu garis titik per goresan ]
  [gambar] o        o [ Sapi  ........                  ]     5 baris; gambar DIACAK,
  ...                                                          kata berurutan
 Merek | Halaman n / total | (c) tahun merek | teks lisensi EN/ID
@@ -69,9 +69,16 @@ Dijalankan ulang tidak membangun ulang tema yang tidak berubah (sidik jari data 
 | Kata belum ada di glosarium | WARN (cek usia, ejaan, terjemahan manual) |
 | Kata panjang (> 12 huruf / > 2 kata) atau terlalu lebar untuk huruf tracing | WARN |
 | Belum ada gambar untuk kata itu | WARN (dipakai lencana huruf) |
+| Karakter di Word_EN/Word_ID yang belum ada di font tracing (hanya A-Z, spasi, - dan ') | FAIL |
 | Image_Prompt tidak menyebut kata / memuat kata terlarang (realistic, scary, photo ...) | WARN / FAIL |
 
 Pemeriksaan terjemahan hanya sebaik glosarium Anda: kata di luar glosarium tidak pernah dipercaya diam-diam.
+
+## Huruf tracing: satu goresan (bukan huruf berongga)
+Kata ditulis sebagai **satu garis titik-titik di sepanjang tengah goresan** tiap huruf (`strokefont.py`, gaya "bola dan tongkat" seperti buku belajar
+menulis prasekolah), bukan garis putus-putus yang mengelilingi bentuk huruf. Titik hijau menandai tempat mulai: di awal goresan pertama tiap huruf
+(kata Inggris) dan di huruf pertama (kata Indonesia). Garis bantu: garis dasar, garis tengah putus-putus (tinggi huruf kecil), garis atas tipis (huruf kapital).
+Pengaturan di `config.py`: `TRACE_STYLE` ("stroke" bawaan atau "outline" = gaya lama), `TRACE_U_EN` / `TRACE_U_ID` (tinggi huruf kecil, pt).
 
 ## Gambar
 Urutan pencarian per kata: (1) `assets/images/<kata>.png` (PNG transparan buatan Anda) -> (2) gambar vektor bawaan di `art.py` / `art_words.py`
@@ -86,6 +93,7 @@ worksheet_engine/
   config.py       merek, warna, font, grid halaman, ambang QC, TEMPLATE_VERSION
   database.py     Excel -> Theme/Word, nama folder aman
   qc.py           pemeriksaan kualitas
+  strokefont.py   font GORESAN TUNGGAL: tiap huruf = jalur goresan; trace_word() menggambar garis titik-titik
   art.py          mesin gambar (Ink) + pencarian PNG; art_words.py = 43 ilustrasi tema
   components.py   header, bilah instruksi, footer, huruf titik-titik, garis menulis
   templates.py    SATU tata letak "Tracing Words" + teks bilingual

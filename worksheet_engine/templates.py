@@ -12,7 +12,9 @@ Mau menambah tema -> cukup tambah 5 baris di Excel (kode Template baru, mis. K).
 from reportlab.lib.colors import white
 from .art import draw_object
 from .components import dot, dotted_text, instruction, panel, text_fit, tracing_line
-from .config import (CONTENT_BOTTOM, CONTENT_TOP, CONTENT_W, FONT_BOLD, FONT_REG, MARGIN, PAGE_W, PALETTE, TINT)
+from .strokefont import trace_word
+from .config import (CONTENT_BOTTOM, CONTENT_TOP, CONTENT_W, FONT_BOLD, FONT_REG, MARGIN, PAGE_W, PALETTE, TINT,
+                     TRACE_STYLE, TRACE_U_EN, TRACE_U_ID)
 
 ACCENTS = ["coral", "sky", "mint", "grape"]          # bergiliran per tema (kuning dihindari: teks kurang terbaca)
 
@@ -42,6 +44,21 @@ def shuffled_order(n, rng):
     return idx[1:] + idx[:1]                             # cadangan: geser satu (selalu tanpa titik tetap)
 
 
+def trace_pair(c, gx, gw, yy, rh, w):
+    """Kata Inggris (atas) dan Indonesia (bawah) untuk ditebalkan, lengkap dengan garis bantu menulis."""
+    if TRACE_STYLE == "outline":                          # gaya lama: huruf berongga
+        tracing_line(c, gx, yy + rh * 0.55, gw)
+        dotted_text(c, gx + 2, yy + rh * 0.55, w.en, 40, max_w=gw - 6)
+        tracing_line(c, gx, yy + rh * 0.13, gw)
+        dotted_text(c, gx + 2, yy + rh * 0.13, w.idn, 28, color="#8686A0", max_w=gw - 6)
+        return
+    base_en, base_id = yy + rh * 0.58, yy + rh * 0.12     # gaya bawaan: satu goresan
+    tracing_line(c, gx, base_en, gw, mid=TRACE_U_EN, top=2 * TRACE_U_EN)
+    trace_word(c, gx + 6, base_en, w.en, TRACE_U_EN, max_w=gw - 12, marks="letters")
+    tracing_line(c, gx, base_id, gw, mid=TRACE_U_ID, top=2 * TRACE_U_ID)
+    trace_word(c, gx + 6, base_id, w.idn, TRACE_U_ID, color="#8686A0", max_w=gw - 12, marks="word")
+
+
 def draw_tracing_words(c, theme, rng, accent):
     y = instruction(c, theme, CONTENT_TOP, SPEC["instr_en"], SPEC["instr_id"], accent, theme.key)
     words = theme.words
@@ -64,11 +81,7 @@ def draw_tracing_words(c, theme, rng, accent):
         # kanan: kata untuk ditebalkan
         w = words[i]
         panel(c, word_x, yy, word_w, rh, fill=white, stroke=PALETTE[accent], lw=2, r=16)
-        gx, gw = word_x + 16, word_w - 32
-        tracing_line(c, gx, yy + rh * 0.55, gw)
-        dotted_text(c, gx + 2, yy + rh * 0.55, w.en, 40, max_w=gw - 6)
-        tracing_line(c, gx, yy + rh * 0.13, gw)
-        dotted_text(c, gx + 2, yy + rh * 0.13, w.idn, 28, color="#8686A0", max_w=gw - 6)
+        trace_pair(c, word_x + 16, word_w - 32, yy, rh, w)
         # titik penghubung
         dot(c, MARGIN + pic_w, yy + rh / 2, 8)
         dot(c, word_x, yy + rh / 2, 8)

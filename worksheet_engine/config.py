@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
 DATA = ROOT / "data"
 
-TEMPLATE_VERSION = "3.0"          # bump to force rebuild of every product
+TEMPLATE_VERSION = "3.1"          # bump to force rebuild of every product
 
 # ---------------------------------------------------------------- brand
 BRAND = {
@@ -65,6 +65,12 @@ for b, r in _CANDIDATES:
         break
 
 # ---------------------------------------------------------------- language helpers
+# ---------------------------------------------------------------- gaya huruf tracing
+# "stroke"  = SATU garis titik-titik di tengah goresan huruf (font goresan tunggal, strokefont.py)  <- bawaan
+# "outline" = garis putus-putus mengelilingi bentuk huruf berongga (gaya lama)
+TRACE_STYLE = "stroke"
+TRACE_U_EN, TRACE_U_ID = 16.5, 12          # tinggi huruf kecil (pt) untuk kata Inggris / Indonesia
+
 # ---------------------------------------------------------------- QC rules
 QC = {
     "max_word_len": 12,

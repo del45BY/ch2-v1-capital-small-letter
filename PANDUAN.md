@@ -23,8 +23,8 @@ Hasil di `PRODUCTS/Tracing_Words/`: satu folder per tema (`01_Farm`, `02_Sea_Ani
 | `--export-prompts` | tulis `image_prompts.csv` untuk membuat gambar dengan AI |
 
 ## 2. Cara kerja satu halaman
-Satu tema = satu template = **tepat 5 kata**. Di halaman: 5 kata di kanan (Inggris di atas Indonesia, huruf titik-titik),
-5 gambar di kiri (urutan diacak). Anak menebalkan kata, lalu menarik garis dari titik di kata ke titik di gambar yang cocok.
+Satu tema = satu template = **tepat 5 kata**. Di halaman: 5 kata di kanan (Inggris di atas Indonesia, ditulis sebagai satu garis titik-titik di tengah goresan huruf),
+5 gambar di kiri (urutan diacak). Anak menebalkan kata mengikuti garis titik-titik (mulai dari titik hijau), lalu menarik garis dari titik di kata ke titik di gambar yang cocok.
 Urutan gambar acak tetapi **selalu sama** untuk data yang sama, dan tidak pernah ada gambar yang sejajar dengan katanya sendiri.
 
 ## 3. Mengisi database (`data/worksheet_database.xlsx`, sheet Database)
@@ -74,6 +74,12 @@ jangan menjual produk yang masih berisi lencana huruf (tanda gambar belum ada); 
 **Don't:** jangan menulis kata tertentu (mis. "farm") langsung di template, pakai `{THEME_EN}` dst; jangan mengecilkan margin tanpa cetak uji.
 Placeholder yang tersedia: `{THEME_EN} {THEME_ID} {THEME_EN_LOWER} {THEME_ID_LOWER} {NUM} {KEY}`.
 
+### `strokefont.py` (huruf tracing satu goresan)
+**Do:** ubah bentuk huruf di kamus `G` (tiap huruf = daftar goresan; titik pertama = tempat mulai menulis); lihat hasilnya dengan membangun satu tema (`--only A`)
+dan cetak; atur ukuran lewat `TRACE_U_EN` / `TRACE_U_ID` di `config.py`; kembali ke gaya huruf berongga dengan `TRACE_STYLE = "outline"`.
+**Don't:** jangan memakai huruf selain A-Z, spasi, `-` dan `'` pada Word_EN/Word_ID (QC menggagalkan; huruf beraksen belum ada); jangan memperbesar `TRACE_U_EN`
+di atas sekitar 17 (huruf turun akan menabrak baris kata Indonesia); jangan mengecilkan `TRACE_U_ID` di bawah sekitar 10 (terlalu kecil untuk usia 3-5).
+
 ### `config.py`
 **Do:** ganti `BRAND["name"]` dengan nama merek Anda sebelum produksi; font bulat (Fredoka/Baloo 2) di `assets/fonts/` memperbaiki tampilan huruf tracing.
 **Don't:** jangan menghapus kunci di `PALETTE`; perubahan warna tidak memicu pembuatan ulang otomatis, jadi pakai `--force` atau naikkan `TEMPLATE_VERSION`.
@@ -95,6 +101,7 @@ Placeholder yang tersedia: `{THEME_EN} {THEME_ID} {THEME_EN_LOWER} {THEME_ID_LOW
 | FAIL `translation` | terjemahan beda dari glosarium | betulkan Excel, atau perbarui glosarium jika glosarium yang salah |
 | Gambar berupa lingkaran berhuruf | belum ada gambar | tambahkan `kata.png` ke `assets/images/` |
 | Warna/teks tidak berubah setelah diedit | skrip menganggap tidak berubah | `--force` |
+| FAIL `tracing-font` | karakter di luar A-Z, spasi, -, ' | tulis ulang kata tanpa aksen/tanda lain |
 | Excel tidak terbaca | file terbuka di Excel | tutup file |
 | ID tertulis `1` bukan `001` | Excel membuang angka nol | format kolom sebagai Teks (skrip juga merapikan) |
 

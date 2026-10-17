@@ -3,6 +3,13 @@
 Aturan: setiap perubahan ditulis di sini (terbaru di atas): tanggal, apa yang berubah, dan alasannya.
 Setiap kali tampilan template berubah, naikkan `TEMPLATE_VERSION` di `worksheet_engine/config.py`.
 
+## [3.1] - 2026-10-14
+### Diubah
+- Huruf tracing kini **satu goresan**: satu garis titik-titik di tengah goresan tiap huruf (bukan garis putus-putus yang mengelilingi huruf berongga). Dibuat dengan font goresan tunggal buatan sendiri `strokefont.py` (A-Z, a-z, spasi, -, ').
+- Titik hijau penanda awal menulis (tiap huruf untuk kata Inggris; huruf pertama untuk kata Indonesia). Garis bantu tiga tingkat (dasar, tengah putus-putus = tinggi huruf kecil, atas tipis = huruf kapital).
+- QC: karakter di luar font tracing = FAIL; pemeriksaan lebar kata memakai ukuran huruf tracing sebenarnya.
+- `config.py`: `TRACE_STYLE` ("stroke" / "outline" untuk gaya lama), `TRACE_U_EN` = 16.5, `TRACE_U_ID` = 12. `TEMPLATE_VERSION` = 3.1.
+
 ## [3.0] - 2026-10-14
 ### Diubah (BESAR: semua template diganti)
 - Model data baru: **1 tema = 1 template (A-J) = 5 kata**. Sheet Excel `Database`: ID | Template | Theme_EN | Theme_ID | Word_EN | Word_ID | Image_Prompt (satu baris = satu kata).

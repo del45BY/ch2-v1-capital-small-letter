@@ -6,9 +6,9 @@ import csv
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from reportlab.pdfbase.pdfmetrics import stringWidth
 from .art import has_art
-from .config import DATA, FONT_BOLD, QC
+from .config import DATA, QC, TRACE_U_EN, TRACE_U_ID
+from .strokefont import G as STROKE_GLYPHS, text_units
 from .database import WORDS_PER_THEME, slug
 
 
@@ -69,6 +69,11 @@ def check_themes(themes, glossary=None) -> list:
             if not w.en or not w.idn:
                 continue
 
+            for fld, txt in (("Word_EN", w.en), ("Word_ID", w.idn)):
+                bad = sorted({ch for ch in txt if ch not in STROKE_GLYPHS})
+                if bad:
+                    add(w.wid, "FAIL", "tracing-font",
+                        f"{fld} '{txt}' berisi karakter {bad} yang belum ada di font tracing (hanya A-Z, spasi, - dan ')")
             low = w.en.lower()
             if not re.fullmatch(r"[A-Za-z]+(?:[ '-][A-Za-z]+)*", w.en):
                 add(w.wid, "FAIL", "spelling", f"Word_EN '{w.en}' berisi karakter tidak valid")
@@ -84,8 +89,7 @@ def check_themes(themes, glossary=None) -> list:
                 if sysdict and low not in sysdict:
                     add(w.wid, "WARN", "spelling", f"'{w.en}' tidak ada di kamus Inggris")
             # muat di kotak tracing?
-            if stringWidth(w.en, FONT_BOLD, QC["min_vocab_font_pt"]) > 300 or \
-               stringWidth(w.idn, FONT_BOLD, QC["min_vocab_font_pt"] - 8) > 300:
+            if text_units(w.en) * TRACE_U_EN > 266 or text_units(w.idn) * TRACE_U_ID > 266:
                 add(w.wid, "WARN", "layout", f"'{w.en}'/'{w.idn}' terlalu lebar untuk huruf tracing besar")
             if not has_art(w.en):
                 add(w.wid, "WARN", "image", f"belum ada gambar '{w.en}': taruh assets/images/{slug(w.en)}.png (dipakai lencana huruf)")
