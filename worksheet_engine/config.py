@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
 DATA = ROOT / "data"
 
-TEMPLATE_VERSION = "3.1"          # bump to force rebuild of every product
+TEMPLATE_VERSION = "4.0"          # bump to force rebuild of every product
 
 # ---------------------------------------------------------------- brand
 BRAND = {
@@ -65,11 +65,11 @@ for b, r in _CANDIDATES:
         break
 
 # ---------------------------------------------------------------- language helpers
-# ---------------------------------------------------------------- gaya huruf tracing
-# "stroke"  = SATU garis titik-titik di tengah goresan huruf (font goresan tunggal, strokefont.py)  <- bawaan
-# "outline" = garis putus-putus mengelilingi bentuk huruf berongga (gaya lama)
-TRACE_STYLE = "stroke"
-TRACE_U_EN, TRACE_U_ID = 16.5, 12          # tinggi huruf kecil (pt) untuk kata Inggris / Indonesia
+# ---------------------------------------------------------------- huruf tracing
+LETTER_U = 22                 # tinggi huruf kecil saat ditebalkan (pt); huruf kapital = 2 x ini (44 pt)
+# Gambar kata kunci (PNG) buatan Anda ada di assets/images. Selama belum lengkap (demo) -> pesan INFO saja.
+# Setelah semua PNG terpasang, ubah ke True: PNG yang hilang menjadi WARN (dan FAIL dengan --strict).
+REQUIRE_IMAGES = False
 
 # ---------------------------------------------------------------- QC rules
 QC = {
@@ -79,7 +79,6 @@ QC = {
         "realistic", "photo", "photograph", "scary", "angry", "blood",
         "gore", "weapon", "creepy", "horror", "3d render", "hyperreal",
     ],
-    "min_vocab_font_pt": 30,          # huruf tracing Inggris; Indonesia = ini - 8
 }
 
 # ---------------------------------------------------------------- AI-image prompt "style lock"

@@ -1,4 +1,4 @@
-# Panduan: Mesin Lembar Kerja "Tracing Words"
+# Panduan: Mesin Lembar Kerja "Alphabet Tracing"
 
 Bahasa ringan, langkah jelas. Ringkasan teknis ada di README.md.
 
@@ -8,86 +8,95 @@ Bahasa ringan, langkah jelas. Ringkasan teknis ada di README.md.
 pip install -r requirements.txt                       # sekali saja
 python -m worksheet_engine.main --db data/worksheet_database.xlsx --out PRODUCTS
 ```
-Hasil di `PRODUCTS/Tracing_Words/`: satu folder per tema (`01_Farm`, `02_Sea_Animals`, ...) berisi `English_Indonesian_Worksheet.pdf`
-(1 halaman), `Preview.png`, `Cover.png`, `Thumbnail.png`; ditambah folder paket lengkap (10 halaman). Di `PRODUCTS/` ada
-`qc_report.csv` (hasil pemeriksaan) dan `manifest.csv` (daftar produk).
+Hasil di `PRODUCTS/Alphabet_Tracing/`: satu folder per template (`A_Capital_Letters_A-C`, `K_Small_Letters_a-c`, ...) berisi
+`English_Indonesian_Worksheet.pdf` (1 halaman), `Preview.png`, `Cover.png`, `Thumbnail.png`; ditambah folder paket lengkap (20 halaman).
+Di `PRODUCTS/`: `qc_report.csv` (hasil pemeriksaan) dan `manifest.csv` (daftar produk).
 
 | Opsi | Fungsi |
 |---|---|
-| `--only A,C` | hanya template tertentu (paket hanya berisi template itu) |
-| `--no-pack` / `--no-themes` | tanpa paket lengkap / hanya paket |
+| `--only A,K,T` | hanya template tertentu (paket hanya berisi template itu) |
+| `--no-pack` / `--no-templates` | tanpa paket lengkap / hanya paket |
 | `--pack-name Nama_Paket` | nama folder dan judul sampul paket |
-| `--workers 4` | beberapa tema sekaligus |
+| `--workers 4` | beberapa template sekaligus |
 | `--force` | bangun ulang meski tidak berubah |
 | `--strict` | peringatan (WARN) dianggap gagal |
-| `--export-prompts` | tulis `image_prompts.csv` untuk membuat gambar dengan AI |
+| `--export-prompts` | tulis `image_prompts.csv`: daftar nama file PNG yang dibutuhkan + prompt pembuatnya |
 
-## 2. Cara kerja satu halaman
-Satu tema = satu template = **tepat 5 kata**. Di halaman: 5 kata di kanan (Inggris di atas Indonesia, ditulis sebagai satu garis titik-titik di tengah goresan huruf),
-5 gambar di kiri (urutan diacak). Anak menebalkan kata mengikuti garis titik-titik (mulai dari titik hijau), lalu menarik garis dari titik di kata ke titik di gambar yang cocok.
-Urutan gambar acak tetapi **selalu sama** untuk data yang sama, dan tidak pernah ada gambar yang sejajar dengan katanya sendiri.
+## 2. Memasang gambar PNG (inti pekerjaan Anda berikutnya)
+Kode tidak menggambar objek apa pun. Setiap huruf punya satu kata kunci bergambar (Apple untuk A, Ball untuk B, dst.).
+1. Buat PNG: latar transparan, persegi (1000 x 1000 px atau lebih), gaya kartun garis tebal yang sama untuk semua.
+2. Namai file dengan kata Inggris huruf kecil: `apple.png`, `ice_cream.png` (spasi dan tanda hubung menjadi garis bawah, jadi `Yo-Yo` = `yo_yo.png`).
+   Huruf besar/kecil nama file tidak dipermasalahkan (`Apple.png` tetap ditemukan).
+3. Simpan di `assets/images/` (folder `assets/Images/` juga dibaca).
+4. Jalankan ulang. Hanya halaman yang memakai PNG baru yang dibangun ulang.
+5. Selama PNG belum ada, halaman menampilkan **kotak teks biasa** berisi nama kata dan nama file yang diharapkan (khusus demo; jangan dijual).
+6. Setelah semua PNG terpasang, ubah `REQUIRE_IMAGES = True` di `config.py`: PNG yang hilang jadi WARN dan `--strict` menolaknya.
+Mau kata kunci lain (mis. A = Ayam)? Ganti `Word_EN`/`Word_ID` di sheet Letters (dan tambahkan ke glosarium).
 
-## 3. Mengisi database (`data/worksheet_database.xlsx`, sheet Database)
-Satu baris = satu kata. Contoh satu tema:
+## 3. Mengisi database (`data/worksheet_database.xlsx`)
 
-| ID | Template | Theme_EN | Theme_ID | Word_EN | Word_ID | Image_Prompt |
-|---|---|---|---|---|---|---|
-| 001 | A | Farm | Peternakan | Cow | Sapi | cute cow |
-| 002 | A | Farm | Peternakan | Chicken | Ayam | cute chicken |
-| ... | A | (tiga baris lagi dengan Template A) | | | | |
+**Sheet Letters** (satu baris = satu huruf + kata kunci):
 
-**Menambah tema baru:** tambah 5 baris dengan huruf Template yang belum dipakai (mis. `K`). Tidak ada kode yang diubah.
-Nomor tema (01, 02, ...) otomatis dari urutan huruf, jadi memakai huruf berurutan (A, B, C ...) menjaga nomor tetap rapi.
+| Letter | Word_EN | Word_ID | Image | Image_Prompt |
+|---|---|---|---|---|
+| A | Apple | Apel | (kosong = apple.png) | cute apple |
 
-**Mengganti kata:** ubah Word_EN dan Word_ID di barisnya. Jika kata baru, tambahkan juga ke `data/approved_vocab.csv`.
+**Sheet Templates** (satu baris = satu halaman):
 
-## 4. Menyiapkan kata dan gambar baru
-1. Tambahkan kata dan terjemahannya ke `data/approved_vocab.csv` (kolom `EN,ID,Age_Min,Notes`) **setelah** terjemahan diverifikasi penutur asli.
-2. Tambahkan 5 baris di Excel.
-3. Gambar: bawaan tersedia untuk 50 kata contoh. Kata lain: jalankan dengan `--export-prompts`, buat PNG dari `image_prompts.csv`,
-   simpan di `assets/images/` dengan nama kata Inggris huruf kecil (`zebra.png`). PNG berlatar transparan, persegi, gaya kartun garis tebal.
-4. Jalankan, lalu baca `qc_report.csv`.
+| Key | Type | Letters | Title_EN | Title_ID |
+|---|---|---|---|---|
+| A | capital | A-C | Capital Letters A-C | Huruf Besar A-C |
+| S | similar | b+d, p+q, m+n | Telling Similar Letters Apart (b-d, p-q, m-n) | Membedakan Huruf Mirip (b-d, p-q, m-n) |
+
+Jenis (kolom Type): **capital** huruf besar (1-5 huruf) | **small** huruf kecil (1-5) | **review** A-Z berurutan | **similar** pasangan huruf mirip (1-4 pasang) | **pairs** pasangan Aa-Zz.
+Letters boleh berupa rentang (`A-C`), daftar (`A-C, F`), atau untuk similar pasangan dengan `+`.
+Mengubah pembagian (misalnya A-C jadi A-D) atau judul cukup dengan mengganti sel; tidak ada kode yang diubah.
+Menambah halaman baru: tambah baris dengan Key yang belum dipakai (U, V, ...). Template bergambar (capital, small, similar) membutuhkan baris huruf yang bersangkutan di sheet Letters.
+
+## 4. Cara kerja halaman
+* **capital / small**: tiap huruf satu blok. Kolom kiri: huruf contoh dengan **nomor urutan goresan**. Tengah: gambar kata kunci dan katanya. Kanan: baris tebalkan
+  (titik-titik, titik hijau = tempat mulai tiap goresan) lalu baris menulis sendiri. Garis bantu tiga tingkat membantu tinggi huruf.
+* **review**: huruf A-Z berurutan, bernomor 1-26 (urutan abjad), tiap baris: tebalkan + tulis sendiri.
+* **similar**: tiap pasangan: dua kartu pembeda, baris tebalkan bergantian (b d b d), dan baris "lingkari huruf b".
+* **pairs**: 26 kotak, tiap kotak huruf besar dan kecil untuk ditebalkan.
 
 ## 5. Do & Don't per bagian
 
 ### `data/worksheet_database.xlsx`
-**Do:** format kolom ID sebagai Teks; isi Theme_EN dan Theme_ID sama di kelima baris satu tema; tutup file Excel sebelum menjalankan skrip;
-pakai kata sederhana (satu kata, maksimal 12 huruf).
-**Don't:** jangan mengganti nama kolom; jangan membuat tema berisi 4 atau 6 kata (QC menggagalkan); jangan memakai ID yang sama dua kali;
-jangan menaruh dua kata dalam satu sel.
+**Do:** format kolom ID/Key sebagai Teks; tutup file Excel sebelum menjalankan skrip; pilih kata kunci sederhana yang gambarnya jelas untuk anak 3-5 tahun;
+pakai kata yang diawali huruf yang bersangkutan (QC memperingatkan jika tidak).
+**Don't:** jangan mengganti nama kolom atau nama sheet (`Letters`, `Templates`); jangan memakai Key yang sama dua kali; jangan menulis type di luar daftar;
+jangan menulis rentang terbalik (`C-A`) atau pasangan similar dengan tanda hubung (`b-d`; harus `b+d`).
 
 ### `data/approved_vocab.csv` (glosarium) dan `qc.py`
 **Do:** minta penutur asli memeriksa glosarium; anggap WARN sebagai tugas (cek kata itu, tambahkan ke glosarium agar lulus berikutnya).
 **Don't:** jangan menambahkan kata ke glosarium sebelum terjemahannya diverifikasi (kesalahan jadi lolos); jangan menganggap PASS berarti pasti benar;
 jangan mematikan QC demi cepat.
-*Catatan data saat ini:* "Sibling = Kakak" berbeda arti (kakak = saudara lebih tua) dan "Room = Kamar" menyempit ke kamar tidur.
-Pertimbangkan "Brother/Sister" atau "Bedroom".
+*Catatan data contoh:* kata kunci dan terjemahan di sheet Letters adalah **usulan saya**, bukan keputusan Anda. Contoh: "Pen = Pulpen" (juga "pena"), "Queen = Ratu".
 
-### `art.py`, `art_words.py`, `assets/images/`
-**Do:** nama file PNG persis kata Inggris huruf kecil; PNG transparan; gaya gambar sama untuk semua kata.
+### `assets/images/`
+**Do:** nama file persis seperti di bagian 2; PNG transparan; gaya gambar sama untuk semua huruf.
 **Don't:** jangan memakai gambar realistis, rumit, atau berekspresi menyeramkan; jangan memakai gambar tanpa hak pakai;
-jangan menjual produk yang masih berisi lencana huruf (tanda gambar belum ada); jangan mengedit folder `.cache` (boleh dihapus).
+jangan menjual produk yang masih menampilkan kotak teks demo; jangan menaruh PNG berlatar putih padat (kotak putih akan terlihat di kartu berwarna).
 
 ### `templates.py` dan `components.py`
-**Do:** ubah tampilan halaman di `draw_tracing_words()` (satu tempat untuk semua tema); ubah header/footer di `components.py`; naikkan
-`TEMPLATE_VERSION` di `config.py` setiap kali tampilan berubah, agar semua tema dibuat ulang.
-**Don't:** jangan menulis kata tertentu (mis. "farm") langsung di template, pakai `{THEME_EN}` dst; jangan mengecilkan margin tanpa cetak uji.
-Placeholder yang tersedia: `{THEME_EN} {THEME_ID} {THEME_EN_LOWER} {THEME_ID_LOWER} {NUM} {KEY}`.
+**Do:** ubah tampilan satu jenis halaman di fungsi `draw_*` jenis itu; ubah header/footer di `components.py`; naikkan `TEMPLATE_VERSION` di `config.py`
+setiap kali tampilan berubah, agar semua template dibuat ulang.
+**Don't:** jangan menulis huruf atau kata tertentu langsung di template; jangan mengecilkan margin tanpa cetak uji.
+Placeholder teks: `{LETTERS} {LETTERS_AND_EN} {LETTERS_AND_ID} {KEY} {TITLE_EN} {TITLE_ID}`.
 
 ### `strokefont.py` (huruf tracing satu goresan)
-**Do:** ubah bentuk huruf di kamus `G` (tiap huruf = daftar goresan; titik pertama = tempat mulai menulis); lihat hasilnya dengan membangun satu tema (`--only A`)
-dan cetak; atur ukuran lewat `TRACE_U_EN` / `TRACE_U_ID` di `config.py`; kembali ke gaya huruf berongga dengan `TRACE_STYLE = "outline"`.
-**Don't:** jangan memakai huruf selain A-Z, spasi, `-` dan `'` pada Word_EN/Word_ID (QC menggagalkan; huruf beraksen belum ada); jangan memperbesar `TRACE_U_EN`
-di atas sekitar 17 (huruf turun akan menabrak baris kata Indonesia); jangan mengecilkan `TRACE_U_ID` di bawah sekitar 10 (terlalu kecil untuk usia 3-5).
+**Do:** ubah bentuk huruf di kamus `G` (tiap huruf = daftar goresan; titik pertama = tempat mulai menulis); lihat hasilnya dengan `--only A` atau `--only K` dan cetak.
+**Don't:** jangan menganggap bentuk huruf ini mengikuti kurikulum tertentu tanpa dicek guru: gaya "bola dan tongkat" adalah pola umum buku prasekolah,
+bukan standar resmi. Jangan memakai huruf selain A-Z/a-z pada halaman tracing.
 
 ### `config.py`
-**Do:** ganti `BRAND["name"]` dengan nama merek Anda sebelum produksi; font bulat (Fredoka/Baloo 2) di `assets/fonts/` memperbaiki tampilan huruf tracing.
+**Do:** ganti `BRAND["name"]` dengan nama merek Anda sebelum produksi; `LETTER_U` mengatur ukuran huruf tebalkan; font bulat (Fredoka/Baloo 2) di `assets/fonts/` memperbaiki tampilan teks.
 **Don't:** jangan menghapus kunci di `PALETTE`; perubahan warna tidak memicu pembuatan ulang otomatis, jadi pakai `--force` atau naikkan `TEMPLATE_VERSION`.
 
 ### `render.py` dan `main.py`
-**Do:** uji dengan `--only` sebelum menjalankan semua; pakai `--workers` untuk banyak tema; cetak satu halaman di A4 skala 100% sebelum produksi.
-**Don't:** jangan menjalankan dari folder lain (jalur `data/...` relatif); jangan menghapus `.build_hash` kecuali ingin membangun ulang; jangan memindahkan file hasil
-(nama dan jalurnya dipakai `manifest.csv`).
+**Do:** uji dengan `--only` sebelum menjalankan semua; cetak satu halaman tiap jenis di A4 skala 100% sebelum produksi.
+**Don't:** jangan menjalankan dari folder lain (jalur `data/...` relatif); jangan menghapus `.build_hash` kecuali ingin membangun ulang; jangan memindahkan file hasil.
 
 ### `create_sample_database.py`
 **Do:** jalankan sekali untuk contoh format, lalu salin dan edit Excel hasilnya.
@@ -96,17 +105,17 @@ di atas sekitar 17 (huruf turun akan menabrak baris kata Indonesia); jangan meng
 ## 6. Masalah umum
 | Gejala | Penyebab | Solusi |
 |---|---|---|
-| `Sheet 'Database' kekurangan kolom` | nama kolom salah | samakan dengan 7 kolom di bagian 3 |
-| Tema berstatus FAIL, `word-count` | bukan tepat 5 baris | perbaiki jumlah baris tema itu |
+| `Sheet 'Letters' kekurangan kolom` | nama kolom/sheet salah | samakan dengan bagian 3 |
+| FAIL `letters-missing` | huruf dipakai template bergambar tapi tak ada di sheet Letters | tambahkan barisnya |
+| FAIL `letter-count` | terlalu banyak huruf untuk type itu (capital/small maks 5) | pecah jadi dua template |
 | FAIL `translation` | terjemahan beda dari glosarium | betulkan Excel, atau perbarui glosarium jika glosarium yang salah |
-| Gambar berupa lingkaran berhuruf | belum ada gambar | tambahkan `kata.png` ke `assets/images/` |
+| Gambar berupa kotak kuning bertuliskan nama | PNG belum ada | tambahkan PNG sesuai nama yang tertera di kotak |
+| PNG sudah ditaruh tetapi tidak muncul | nama file tak cocok atau salah folder | cocokkan dengan nama di kotak teks; cek `assets/images/` |
 | Warna/teks tidak berubah setelah diedit | skrip menganggap tidak berubah | `--force` |
-| FAIL `tracing-font` | karakter di luar A-Z, spasi, -, ' | tulis ulang kata tanpa aksen/tanda lain |
 | Excel tidak terbaca | file terbuka di Excel | tutup file |
-| ID tertulis `1` bukan `001` | Excel membuang angka nol | format kolom sebagai Teks (skrip juga merapikan) |
 
 ## 7. Batasan
-* Gambar bawaan hanya untuk 50 kata contoh; selebihnya perlu PNG Anda.
-* Pemeriksaan terjemahan dan usia hanya berlaku untuk kata yang ada di glosarium.
-* Belum ada halaman kunci jawaban. Tata letak sudah diuji secara visual, belum di printer sungguhan.
-* Versi sebelumnya (pasangan objek, template pra-menulis, mode bundle) ada di tag Git `v2.1`.
+* Bentuk huruf tracing adalah font buatan sendiri; periksa dengan guru atau terapis okupasi sebelum dijual.
+* Pemeriksaan terjemahan hanya berlaku untuk kata yang ada di glosarium.
+* Belum ada halaman kunci jawaban. Tata letak sudah diperiksa secara visual, belum di printer sungguhan: cetak dulu satu halaman tiap jenis.
+* Sistem sebelumnya ada di tag Git `v2.1` dan `v3.1`.

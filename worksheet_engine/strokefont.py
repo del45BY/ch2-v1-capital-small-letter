@@ -155,3 +155,71 @@ def trace_word(c, x, y, text, u, color="#7C7C94", max_w=None, gap=0.30, marks="l
         pen += (width + SPACING) * u
     c.restoreState()
     return u
+
+
+def _mix(hexcolor: str, amount: float) -> str:
+    """Campur warna dengan putih (amount 0..1 = seberapa pucat) -> warna utuh tanpa transparansi."""
+    h = hexcolor.lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    f = lambda v: int(v + (255 - v) * amount)
+    return "#%02X%02X%02X" % (f(r), f(g), f(b))
+
+
+def y_extent(ch):
+    """(y_min, y_max) huruf dalam satuan garis bantu (untuk memusatkan huruf contoh secara vertikal)."""
+    ys = [py for stroke in G[ch][1] for _, py in stroke]
+    return (min(ys), max(ys)) if ys else (0.0, 1.0)
+
+
+def _point_along(pts, dist):
+    """Titik pada jarak dist (pt) dari awal goresan."""
+    left = dist
+    for a, b in zip(pts, pts[1:]):
+        seg = math.hypot(b[0] - a[0], b[1] - a[1])
+        if seg >= left > 0:
+            t = left / seg
+            return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+        left -= seg
+    return pts[-1]
+
+
+def draw_model(c, ch, x, y, u, color, numbers=True):
+    """Huruf CONTOH: goresan tebal berwarna pucat + nomor urutan goresan (1, 2, 3 ...) di titik mulai.
+    Bila beberapa goresan mulai di titik yang sama, nomornya digeser sepanjang goresan agar tidak saling menimpa.
+    (x, y) = awal baseline; u = tinggi huruf kecil. Mengembalikan lebar huruf (pt)."""
+    width, strokes = G[ch]
+    c.saveState()
+    c.setStrokeColor(hx(_mix(color, 0.55))); c.setFillColor(hx(_mix(color, 0.55)))
+    c.setLineWidth(0.30 * u); c.setLineCap(1); c.setLineJoin(1)
+    spts = []
+    for stroke in strokes:
+        pts = [(x + px * u, y + py * u) for px, py in stroke]
+        spts.append(pts)
+        if len(pts) == 1:
+            c.circle(pts[0][0], pts[0][1], 0.15 * u, stroke=0, fill=1)
+            continue
+        p = c.beginPath(); p.moveTo(*pts[0])
+        for q in pts[1:]:
+            p.lineTo(*q)
+        c.drawPath(p, stroke=1, fill=0)
+    if numbers:
+        from .config import FONT_BOLD
+        r = max(5.0, 0.27 * u)
+        placed = []
+        for i, pts in enumerate(spts, 1):
+            pos = pts[0]
+            if any(math.hypot(pos[0] - q[0], pos[1] - q[1]) < 2.1 * r for q in placed) and len(pts) > 1:
+                for d in (1.6 * r, 2.6 * r, 3.6 * r, 4.6 * r):          # geser sepanjang goresan sampai tidak bertumpuk
+                    cand = _point_along(pts, d)
+                    if all(math.hypot(cand[0] - q[0], cand[1] - q[1]) >= 2.1 * r for q in placed):
+                        pos = cand
+                        break
+                else:
+                    pos = cand
+            placed.append(pos)
+            c.setFillColor(hx(color)); c.setStrokeColor(white); c.setLineWidth(1)
+            c.circle(pos[0], pos[1], r, stroke=1, fill=1)
+            c.setFillColor(white); c.setFont(FONT_BOLD, r * 1.25)
+            c.drawCentredString(pos[0], pos[1] - r * 0.42, str(i))
+    c.restoreState()
+    return width * u

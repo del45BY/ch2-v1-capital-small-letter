@@ -21,19 +21,6 @@ def text_fit(c, x, y, text, font, max_size, max_w, color, align="left", min_size
     return size
 
 
-def dotted_text(c, x, y, text, size, color="#7C7C94", max_w=None, font=None, lw=1.25, dash=(2.2, 3.4)):
-    """Huruf tracing: garis tepi huruf berupa titik-titik. Font tipis + titik renggang agar terbaca."""
-    font = font or FONT_REG
-    if max_w:
-        size = fit_size(text, font, size, max_w, 14)
-    c.saveState()
-    t = c.beginText(x, y); t.setFont(font, size); t.setTextRenderMode(1)
-    c.setStrokeColor(hx(color)); c.setLineWidth(lw); c.setDash(*dash)
-    c.setLineCap(1); c.setLineJoin(1)
-    t.textOut(text); c.drawText(t)
-    c.restoreState()
-
-
 def tracing_line(c, x, y, w, color="#C9C9D6", mid=22, top=None):
     """Garis bantu menulis: garis dasar (utuh), garis tengah putus-putus setinggi huruf kecil (mid),
     dan opsional garis atas tipis setinggi huruf kapital (top)."""
@@ -161,8 +148,7 @@ def footer(c, page_no, total, tpl_label):
     c.line(MARGIN, y + 12, PAGE_W - MARGIN, y + 12)
     c.setFont(FONT_BOLD, 10); c.setFillColor(hx(PALETTE["ink"]))
     c.drawString(MARGIN, y - 4, BRAND["name"])
-    c.setFont(FONT_REG, 8.5); c.setFillColor(hx(PALETTE["grey"]))
-    c.drawString(MARGIN, y - 16, tpl_label)
+    text_fit(c, MARGIN, y - 16, tpl_label, FONT_REG, 8.5, 236, PALETTE["grey"], min_size=5.5)
     c.setFont(FONT_BOLD, 10); c.setFillColor(hx(PALETTE["grey"]))
     c.drawCentredString(PAGE_W / 2, y - 4, f"Page {page_no} / {total}")
     c.setFont(FONT_REG, 8.5)

@@ -3,6 +3,20 @@
 Aturan: setiap perubahan ditulis di sini (terbaru di atas): tanggal, apa yang berubah, dan alasannya.
 Setiap kali tampilan template berubah, naikkan `TEMPLATE_VERSION` di `worksheet_engine/config.py`.
 
+## [4.0] - 2026-10-14
+### Diubah (BESAR: semua template diganti)
+- 20 template A-T untuk menulis huruf: A-I Huruf Besar (A-C, D-F, G-I, J-L, M-O, P-R, S-U, V-X, Y-Z), J Review Huruf Besar A-Z & Urutan Abjad, K-R Huruf Kecil (a-c ... v-z), S Membedakan Huruf Mirip (b-d, p-q, m-n), T Pasangan Huruf Besar-Kecil (Aa-Zz).
+- Model data baru: sheet `Letters` (huruf + kata kunci) dan sheet `Templates` (Key, Type, Letters, judul). Pembagian huruf dan judul diatur di Excel. Lima jenis tata letak: capital, small, review, similar, pairs.
+- Huruf contoh dengan nomor urutan goresan (`draw_model`), baris tebalkan titik-titik satu goresan + baris tulis sendiri, garis bantu tiga tingkat.
+- Sampul memakai kotak huruf biasa (tidak butuh gambar). Keluaran: `PRODUCTS/Alphabet_Tracing/<Key_Judul>/` + paket lengkap 20 halaman. `TEMPLATE_VERSION` = 4.0.
+- Sidik jari pembangunan ulang per template: hanya PNG yang dipakai template itu yang dihitung (menambah satu PNG tidak membangun ulang semuanya).
+- QC ditulis ulang: level baru INFO (PNG belum ada) dan `REQUIRE_IMAGES` untuk menjadikannya WARN setelah gambar lengkap; halaman review/pairs tidak butuh sheet Letters.
+### Dihapus
+- Seluruh ilustrasi vektor bawaan (`art_words.py` dan semua gambar di `art.py`): kode tidak lagi menggambar objek apa pun. Gambar kini hanya dari PNG di `assets/images` (atau `assets/Images`); selama belum ada -> kotak teks biasa (demo).
+- Model "tema berisi 5 kata", huruf tebalkan untuk kata, dan glosarium kata lama tetap di Git (tag `v3.1`); glosarium diperluas menjadi 82 kata.
+### Catatan data
+- Kata kunci per huruf (Apple, Ball, Cat, ...) dan terjemahannya adalah usulan, belum diverifikasi penutur asli.
+
 ## [3.1] - 2026-10-14
 ### Diubah
 - Huruf tracing kini **satu goresan**: satu garis titik-titik di tengah goresan tiap huruf (bukan garis putus-putus yang mengelilingi huruf berongga). Dibuat dengan font goresan tunggal buatan sendiri `strokefont.py` (A-Z, a-z, spasi, -, ').
